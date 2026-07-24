@@ -30,6 +30,8 @@ STORAGE_MARKER = "tg-notes-store:v1"
 CONTACTS_TOPIC = "contacts"
 #: The notebook topic created by default when none is named.
 DEFAULT_NOTEBOOK = "daily"
+#: Topics that are not notebooks (the forum default and the address book).
+RESERVED_TOPICS = frozenset({"General", CONTACTS_TOPIC})
 
 
 class NotConfiguredError(Exception):
@@ -223,6 +225,30 @@ def notes_list(cfg: Config, notebook: str, since: object | None = None) -> list[
             )
         notes.sort(key=lambda note: note["message_id"])  # oldest first
         return notes
+    finally:
+        client.disconnect()
+
+
+def notebooks_list(cfg: Config) -> list[dict]:
+    """Return the storage group's notebook topics as ``{name, topic_id}``, sorted (TGN-8).
+
+    Excludes the reserved topics (``General``, ``contacts``) — only real notebooks.
+
+    Raises:
+        NotSetUpError / NotConfiguredError / NotAuthorizedError: store/auth problems.
+    """
+    if not cfg.storage_group_id:
+        raise NotSetUpError("no storage group configured — run `tg-notes setup` first")
+    client = connect_authorized(cfg)
+    try:
+        entity = _resolve_store(client, cfg)
+        notebooks = [
+            {"name": name, "topic_id": topic_id}
+            for name, topic_id in _list_topics(client, entity).items()
+            if name not in RESERVED_TOPICS
+        ]
+        notebooks.sort(key=lambda entry: entry["name"])
+        return notebooks
     finally:
         client.disconnect()
 

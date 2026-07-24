@@ -85,3 +85,9 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   `_target_from_chat_id`, resolving `chat_id` as `-100…` int or `@user` / `me`) and a
   `ContactNotFoundError` (CLI exit 5); empty text is refused. Tests in `tests/test_send.py`
   (Telethon mocked). This is the first command that posts outside the storage group.
+- Notebook listing (TGN-8): `tg-notes notebooks list` returns the storage group's notebook
+  topics as JSON (`{name, topic_id}`, sorted), excluding the reserved `General` and
+  `contacts` topics. New `telegram.notebooks_list` and `RESERVED_TOPICS`; tests in
+  `tests/test_notebooks.py`. Completes **Phase 1 (CLI core)** — all deterministic Telegram
+  commands are implemented and verified end-to-end. Removed the leftover `_todo` stub
+  handler now that no command is a stub.

@@ -77,6 +77,9 @@ tg-notes contacts remove boss
 tg-notes send --contact boss --text-file report.txt
 echo "..." | tg-notes send --contact boss --text-file - --dry-run
 
+# List the storage group's notebook topics as JSON (excludes General/contacts).
+tg-notes notebooks list
+
 # Log in on its own (setup calls this for you; useful to re-authorize a new device).
 # Requires api_id/api_hash in local config; writes a chmod-600 session file.
 tg-notes login

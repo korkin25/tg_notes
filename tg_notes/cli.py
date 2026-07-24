@@ -10,8 +10,8 @@ Command surface (implemented incrementally — see TODO.md):
   send                         publish a compiled note to a contact    (TGN-7)
   notebooks list               list notebook topics                    (TGN-8)
 
-`login` and `whoami` are implemented (TGN-2); the remaining command bodies land in
-their own tasks and are stubs for now.
+All Phase 1 commands are implemented; the intelligence (composing/compiling notes) lives
+in the agent Skills on top, not here.
 """
 from __future__ import annotations
 
@@ -22,16 +22,6 @@ from datetime import datetime
 from pathlib import Path
 
 from . import __version__, config, telegram
-
-
-def _todo(task: str):
-    """Placeholder handler for a not-yet-implemented command."""
-
-    def handler(args: argparse.Namespace) -> int:
-        sys.stderr.write(f"not implemented yet ({task})\n")
-        return 2
-
-    return handler
 
 
 def _login(args: argparse.Namespace) -> int:
@@ -269,6 +259,17 @@ def _contacts_remove(args: argparse.Namespace) -> int:
     return 0
 
 
+def _notebooks_list(args: argparse.Namespace) -> int:
+    """List the storage group's notebook topics as JSON (TGN-8)."""
+    cfg = config.load()
+    try:
+        items = telegram.notebooks_list(cfg)
+    except _STORE_ERRORS as exc:
+        return _handle_store_errors(exc)
+    print(json.dumps(items, ensure_ascii=False))
+    return 0
+
+
 def _send(args: argparse.Namespace) -> int:
     """Publish compiled text to a contact's chat/topic (TGN-7)."""
     cfg = config.load()
@@ -375,7 +376,7 @@ def build_parser() -> argparse.ArgumentParser:
     # notebooks list (TGN-8)
     p_nb = sub.add_parser("notebooks", help="notebooks")
     nb_sub = p_nb.add_subparsers(dest="subcommand", metavar="<subcommand>", required=True)
-    nb_sub.add_parser("list", help="list notebook topics").set_defaults(func=_todo("TGN-8"))
+    nb_sub.add_parser("list", help="list notebook topics").set_defaults(func=_notebooks_list)
 
     return parser
 
