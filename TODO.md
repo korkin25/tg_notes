@@ -6,6 +6,11 @@ live in `docs/`; stages, current status, and checklists are tracked here. Done t
 
 ## Current state / next action
 
+- **Release `0.1.1` cut** (2026-07-25): version bumped in `tg_notes/__init__.py`, the
+  `## [Unreleased]` block rolled into `## [0.1.1]` in `CHANGELOG.md`. The **media feature is
+  complete** and **TGN-1..21 are all done** (in `CHANGELOG.md`). The maintainer tags `v0.1.1`
+  to trigger the Trusted-Publishing release workflow. Only optional **TGN-15**
+  (community-marketplace submission, a user web action) remains open.
 - Branch: `main` (feature/packaging merged).
 - **Phases 1 (CLI core) and 2 (the Claude Code Skill) are COMPLETE**, in `CHANGELOG.md`,
   each verified end-to-end on @korkin25. Commands: `setup/login/whoami/note add/notes
