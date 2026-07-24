@@ -6,11 +6,17 @@ live in `docs/`; stages, current status, and checklists are tracked here. Done t
 
 ## Current state / next action
 
-- Branch: `main` (feature/tgn-2 merged).
+- Branch: `feature/tgn-3` (off `main`).
 - TGN-1 (project scaffolding) and TGN-2 (Telethon client layer + login/whoami) — done,
   in `CHANGELOG.md`. TGN-2 verified end-to-end: `tg-notes whoami` returns the real
   account (@korkin25).
-- **NEXT:** TGN-3 (`tg-notes setup`) — start on a new `feature/tgn-3` branch (TDD).
+- TGN-3 (`tg-notes setup`) — **implemented** on `feature/tgn-3`: `telegram.setup` +
+  helpers and the `setup` CLI command; 39 tests green (Telethon mocked), ruff + bandit
+  clean.
+- **NEXT ACTION:** live-verify TGN-3 by running `tg-notes setup` against the real account
+  (creates the forum supergroup, `contacts` + `daily` topics, pinned marker). Once
+  confirmed working, merge `feature/tgn-3` → `main`, move TGN-3 to `CHANGELOG.md` as ✅,
+  and start TGN-4 (`note add`). Do not mark TGN-3 done before that verification.
 
 ## Legend
 
@@ -31,13 +37,14 @@ Decision items use `TGN-D<n>`.
 
 ## Current work
 
-_None in progress. Next up: TGN-3 (see Phase 1)._
+- **TGN-3 🟡** — `tg-notes setup` implemented on `feature/tgn-3`, tests green; awaiting
+  live verification against the real account before merge (see "Current state" above).
 
 ## Phase 1 — CLI core (`tg-notes`)
 
 | ID | Status | Task | Details |
 | --- | --- | --- | --- |
-| TGN-3 | ⬜ | `tg-notes setup` | Create or attach a private forum supergroup; ensure the `contacts` topic and a default notebook; persist the group id in local config; tag the group (fixed title + pinned marker) for recovery (TGN-D2). |
+| TGN-3 | 🟡 | `tg-notes setup` | Create or attach a private forum supergroup; ensure the `contacts` topic and a default notebook; persist the group id in local config; tag the group (fixed title + pinned marker) for recovery (TGN-D2). Implemented + tests green; pending live verification. |
 | TGN-4 | ⬜ | `tg-notes note add` | Append a note to a notebook topic (create the topic on demand); optional hashtags. |
 | TGN-5 | ⬜ | `tg-notes notes list` | Fetch raw notes from a notebook within a time range (feeds compilation). |
 | TGN-6 | ⬜ | Contacts (address book) | `contacts list/set/remove`; the message-per-contact schema in the `contacts` topic. |

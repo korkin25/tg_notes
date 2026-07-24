@@ -38,3 +38,11 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Test suite under `tests/` (pytest + pytest-mock): config round-trip / file mode / session
   path, the Telegram layer with Telethon fully mocked (offline), and the CLI argument
   surface. Pytest and ruff config added to `pyproject.toml`.
+- Storage provisioning (TGN-3): `tg-notes setup` creates (or idempotently attaches to) the
+  private forum supergroup that stores notes. It ensures the `contacts` topic and a default
+  `daily` notebook topic (override with `--notebook`), pins a recovery marker in the group
+  so a lost store can be re-discovered, and persists the resolved group id to local config.
+  New `telegram.setup` plus helpers (`_resolve_or_create` / `_create_storage_group` /
+  `_ensure_topics` / `_pin_marker`) built on Telethon's forum raw API
+  (`CreateChannelRequest(megagroup=True, forum=True)`, `CreateForumTopicRequest`,
+  `GetForumTopicsRequest`); tests in `tests/test_setup.py` with Telethon fully mocked.

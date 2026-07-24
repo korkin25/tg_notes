@@ -44,6 +44,23 @@ def _login(args: argparse.Namespace) -> int:
     return 0
 
 
+def _setup(args: argparse.Namespace) -> int:
+    """Provision/attach the storage group, then persist its id to local config."""
+    cfg = config.load()
+    try:
+        result = telegram.setup(cfg, notebook=args.notebook)
+    except telegram.NotConfiguredError as exc:
+        sys.stderr.write(f"{exc}\n")
+        return 1
+    except telegram.NotAuthorizedError as exc:
+        sys.stderr.write(f"{exc}\n")
+        return 3
+    cfg.storage_group_id = result["group_id"]
+    config.save(cfg)
+    print(json.dumps(result, ensure_ascii=False))
+    return 0
+
+
 def _whoami(args: argparse.Namespace) -> int:
     """Print the identity of the currently logged-in account."""
     cfg = config.load()
@@ -77,7 +94,12 @@ def build_parser() -> argparse.ArgumentParser:
 
     # setup (TGN-3)
     p_setup = sub.add_parser("setup", help="create or attach the storage group")
-    p_setup.set_defaults(func=_todo("TGN-3"))
+    p_setup.add_argument(
+        "--notebook",
+        default="daily",
+        help="name of the default notebook topic to ensure (default: daily)",
+    )
+    p_setup.set_defaults(func=_setup)
 
     # note add (TGN-4)
     p_note = sub.add_parser("note", help="work with notes")

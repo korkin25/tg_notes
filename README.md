@@ -53,6 +53,11 @@ tg-notes login
 
 # Print the logged-in account identity (id / username / first name).
 tg-notes whoami
+
+# One-time: create (or attach to) the private forum supergroup that stores your notes.
+# Ensures the `contacts` topic and a default `daily` notebook, pins a recovery marker,
+# and saves the group id to local config. Idempotent — safe to re-run.
+tg-notes setup [--notebook <name>]
 ```
 
 ## Security & Telegram ToS
