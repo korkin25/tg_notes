@@ -22,11 +22,13 @@ live in `docs/`; stages, current status, and checklists are tracked here. Done t
 - CI is green on GitHub (fixed a pip-audit false-positive on the runner's `setuptools`).
 - Logged TGN-18 (pluggable secrets backend — Secret Service/keyring incl. KeePassXC,
   `StringSession` in the vault) as later work; the file backend stays the default.
-- TGN-16 done: `AGENTS.md` expanded with the shipped pieces + per-agent distribution
-  (Phase 4 complete). TGN-15 repo-side ready (submission is a user web action).
-- **NEXT (working through remaining in order):** TGN-17 (local stdio MCP adapter), then
-  TGN-18 (secrets backend, deferred). Core product (Phases 1–4) is shipped; these broaden
-  reach / harden.
+- TGN-16 done (Phase 4). TGN-15 repo-side ready (submission is a user web action).
+- TGN-17 done: local stdio MCP server (`tg-notes-mcp`, `mcp` extra) exposing note_add /
+  notes_list / contacts_list / send; verified end-to-end via the server against the real
+  account. Also fixed a `contacts_set` bug (unchanged-content `MessageNotModifiedError`).
+- **NEXT:** TGN-18 (pluggable secrets backend) — the last open item; deferred by earlier
+  agreement, now next in order. Then TGN-15 (community-marketplace submission, user web
+  action) is the only thing left, and it's optional.
 
 ## Legend
 
@@ -62,7 +64,6 @@ Complete — all rows moved to `CHANGELOG.md`.
 | ID | Status | Task | Details |
 | --- | --- | --- | --- |
 | TGN-15 | 🟡 | Submit to community marketplace | Repo-side ready: `claude plugin validate . --strict` passes, plugin is git-installable from `korkin25/tg_notes`. Remaining is a **user web action** — submit via the Anthropic console/marketplace form. Later, optional. |
-| TGN-17 | ⬜ | Local MCP adapter | Expose the core as a local stdio MCP server (official `mcp` / FastMCP) alongside the CLI: tools note_add / notes_list / contacts_list / send. Same core, second frontend; broadens reach to GUI clients (Claude Desktop, ChatGPT) that cannot shell out. Session/secrets stay local (stdio only, not hosted). |
 
 ## Phase 4 — Multi-agent portability
 

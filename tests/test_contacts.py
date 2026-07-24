@@ -205,6 +205,22 @@ def test_contacts_remove_no_contacts_topic_is_noop(mocker) -> None:
     instance.delete_messages.assert_not_called()
 
 
+def test_contacts_set_unchanged_content_is_ok(mocker) -> None:
+    from telethon.errors import MessageNotModifiedError
+
+    instance = _authorized_client(mocker)
+    mocker.patch("tg_notes.telegram._ensure_topics", return_value={"contacts": 4})
+    existing = contacts.Contact("boss", chat_id="@boss", style="same")
+    instance.iter_messages.return_value = [_contact_msg(mocker, 19, existing)]
+    # editing to identical content → Telegram raises; treated as a successful no-op
+    instance.edit_message.side_effect = MessageNotModifiedError(request=None)
+
+    result = telegram.contacts_set(configured(), "boss", style="same")
+
+    assert result["created"] is False
+    instance.edit_message.assert_called_once()
+
+
 def test_contacts_set_disconnects_on_error(mocker) -> None:
     instance = _authorized_client(mocker)
     mocker.patch("tg_notes.telegram._ensure_topics", side_effect=RuntimeError("boom"))

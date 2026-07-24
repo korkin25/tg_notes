@@ -7,6 +7,17 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Added
+
+- Local MCP server (TGN-17): `tg-notes-mcp` — a stdio MCP server (`mcp` / FastMCP) that
+  exposes the core as tools `note_add` / `notes_list` / `contacts_list` / `send`, so agent
+  hosts that can't shell out (Claude Desktop, …) can drive tg-notes. Same local core; the
+  Telethon session/secrets stay on the machine (stdio only, nothing hosted). Tools are
+  async and offload the blocking Telethon calls to a worker thread (the sync core can't run
+  inside the server's event loop). Ships behind an optional extra:
+  `pipx install "tg-notes[mcp]"`; new `tg_notes/mcp_server.py`, tests in `tests/test_mcp.py`.
+  Verified end-to-end against the real account (all four tools via the server).
+
 ### Changed
 
 - Expanded `AGENTS.md` (TGN-16) with the concrete shipped pieces (the `tg-notes` CLI on
@@ -17,6 +28,9 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Fixed
 
+- `contacts set` no longer errors when re-setting a contact to unchanged values: the
+  underlying `edit_message` `MessageNotModifiedError` is caught and treated as a successful
+  no-op (found while exercising the MCP server).
 - CI: upgrade `pip`/`setuptools` before `pip-audit` so it no longer flags the runner's
   incidental build tooling (`setuptools` PYSEC-2026-3447, absent on 3.12 but present on
   3.11), which was failing the pipeline. `tg-notes` does not depend on `setuptools`.

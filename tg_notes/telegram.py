@@ -11,6 +11,7 @@ import os
 
 import telethon.sync  # noqa: F401  # enables synchronous TelegramClient methods
 from telethon import TelegramClient, utils
+from telethon.errors import MessageNotModifiedError
 from telethon.tl.functions.channels import CreateChannelRequest
 from telethon.tl.functions.messages import (
     CreateForumTopicRequest,
@@ -302,7 +303,10 @@ def contacts_set(
         )
         text = contacts_mod.serialize(merged)
         if message is not None:
-            client.edit_message(entity, message.id, text)
+            try:
+                client.edit_message(entity, message.id, text)
+            except MessageNotModifiedError:
+                pass  # identical content — nothing to change, still a successful set
             created = False
         else:
             client.send_message(entity, text, reply_to=contacts_topic)

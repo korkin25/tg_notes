@@ -22,7 +22,8 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8", "pytest-mock", "ruff", "bandit", "pip-audit", "build"]
+mcp = ["mcp>=1.2"]
+dev = ["pytest>=8", "pytest-mock", "ruff", "bandit", "pip-audit", "build", "mcp>=1.2"]
 
 [project.urls]
 Homepage = "https://github.com/korkin25/tg_notes"
@@ -30,6 +31,7 @@ Repository = "https://github.com/korkin25/tg_notes"
 
 [project.scripts]
 tg-notes = "tg_notes.cli:main"
+tg-notes-mcp = "tg_notes.mcp_server:main"
 
 [tool.hatch.version]
 path = "tg_notes/__init__.py"
