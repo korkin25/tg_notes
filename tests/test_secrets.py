@@ -7,7 +7,6 @@ from telethon.sessions import StringSession
 from tg_notes import secrets, telegram
 from tg_notes.config import Config
 
-
 # --- backend selection + file backend --------------------------------------------
 
 

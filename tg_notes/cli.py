@@ -295,14 +295,18 @@ def _send(args: argparse.Namespace) -> int:
 def _secret_service_provider() -> str | None:
     """Best-effort name of the process owning org.freedesktop.secrets (None if unknown)."""
     import shutil
-    import subprocess  # noqa: S404 — fixed args, no shell, no user input
+    import subprocess
 
     busctl = shutil.which("busctl")
     if not busctl:
         return None
     try:
-        out = subprocess.run(  # noqa: S603 — fixed argv, trusted binary
-            [busctl, "--user", "list"], capture_output=True, text=True, timeout=5
+        out = subprocess.run(
+            [busctl, "--user", "list"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=False,
         ).stdout
     except (OSError, subprocess.SubprocessError):
         return None
