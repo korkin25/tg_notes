@@ -683,6 +683,8 @@ def test_secrets_doctor_command_json(mocker, capsys) -> None:
     out = _json.loads(capsys.readouterr().out)
     assert out["backend"] == "file" and out["probe_ok"] is True
     assert "recommendations" in out
+    assert out["keyring_service"] == "tg-notes"
+    assert "config_dir" in out
 
 
 def test_secrets_migrate_keyring_not_ready_shows_recommendations(mocker, capsys) -> None:
