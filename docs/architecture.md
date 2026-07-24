@@ -79,7 +79,11 @@ per-access-confirmation vault like KeePassXC prompts-and-proceeds instead of fai
 with "locked"; entries stay compatible with ones written by the plain `keyring` library
 (looked up by `{service, username}`), and where `secretstorage` is unavailable it falls
 back to `keyring`. The default (file) path never requires an interactive vault unlock, so
-scheduled/unattended runs keep working.
+scheduled/unattended runs keep working. On Linux with the keyring backend the CLI first
+re-execs itself through a copy of the interpreter placed at `<venv>/libexec/tg-notes` (venv
+packages re-added via `site.addsitedir` under `-S`), so the Secret Service confirmation
+prompt identifies the app as `tg-notes` rather than `python3.12`; it is best-effort and a
+read-only venv silently skips it (see `tg_notes/relaunch.py`).
 
 `setup` also tags the store with a fixed title and a marker in its pinned message.
 If the local config is ever lost (e.g. a new machine), the group can be re-discovered

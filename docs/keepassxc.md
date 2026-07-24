@@ -85,6 +85,25 @@ choices are:
   `systemd --user` helper that holds one long-lived D-Bus connection, approved once, and
   proxies reads. More moving parts.
 
+## What the prompt shows (app name)
+
+KeePassXC's confirmation dialog identifies the requesting process by its **real
+executable** (`/proc/<pid>/exe`). For a Python CLI that is `python3.12` — meaningless in
+the prompt. So on **Linux with the keyring backend**, before touching any secret,
+tg-notes **re-execs itself through a named launcher** at `<venv>/libexec/tg-notes`: a
+copy of the base interpreter, with the venv's `site-packages` added back via
+`site.addsitedir(...)` while running under `-S` (system site-packages isolated). The
+basename is then exactly `tg-notes` — with no collision with the `<venv>/bin/tg-notes`
+console script — so the KeePassXC prompt says **tg-notes** instead of **python3.12**,
+while `telethon` / `secretstorage` / `tg_notes` still resolve.
+
+The launcher is **created once and reused** (recopied only if its size no longer matches
+the interpreter). Everything is best-effort: on a **read-only venv** (or any copy/exec
+failure) the re-exec is **silently skipped** — the prompt shows `python` but the CLI
+keeps working. `TG_NOTES_RELAUNCHED` is an **internal loop guard** and is not meant to be
+set by hand. On non-Linux, on the file backend, or in a frozen build, nothing is
+re-exec'd.
+
 ## Security model
 
 With confirmation OFF, any process running as your user can read the **exposed group**
