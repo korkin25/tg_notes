@@ -80,7 +80,7 @@ jobs:
           pip install -e .
           pip install bandit pip-audit
       - name: Bandit
-        run: bandit -r tg_notes
+        run: bandit -c pyproject.toml -r tg_notes
       - name: pip-audit (project env)
         run: pip-audit
       - name: Semgrep (SAST, isolated via pipx)

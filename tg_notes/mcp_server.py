@@ -166,6 +166,8 @@ def run_http() -> int:
     """
     try:
         server = build_server(
+            # Bind all interfaces by default: this runs as a container/Deployment
+            # whose network exposure is controlled by k8s, not the process.
             host=os.environ.get("TG_NOTES_MCP_HOST", "0.0.0.0"),
             port=int(os.environ.get("TG_NOTES_MCP_PORT", "8000")),
         )
