@@ -94,6 +94,12 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Fixed
 
+- The keyring backend now reuses a single `secretstorage` D-Bus connection per process
+  (`_ss_collection` lazily opens it once and caches it) instead of opening a new one on every
+  vault read. A single command reads the vault several times (`api_hash`, session,
+  `has_session`), and KeePassXC binds each per-access-confirmation grant to the requesting
+  D-Bus connection — so this makes each command trigger **at most one** KeePassXC confirmation
+  prompt instead of one per read.
 - `secrets migrate --to keyring` no longer overwrites the vault with an empty
   (unauthorized) session: `migrate_to_keyring` aborts if the exported session string is
   empty, so a not-logged-in run can't clobber a good vault entry.
