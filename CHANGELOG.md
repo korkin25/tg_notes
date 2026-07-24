@@ -9,6 +9,15 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
+- `tg-notes secrets doctor` — diagnoses the secret store (active backend, a classified
+  vault round-trip via `keyring_probe`, the process owning the Secret Service bus, and the
+  detected stores) and prints ordered, actionable recommendations: install the
+  `tg-notes[keyring]` extra, expose a KeePassXC group, turn off KeePassXC per-access
+  confirmation, hand the Secret Service bus from gnome-keyring over to KeePassXC, or migrate
+  when the vault is ready (`--json` for machine-readable output). `secrets migrate --to
+  keyring` now runs the same pre-flight and prints those recommendations instead of a
+  generic error when the vault isn't ready, and `setup` ends with a tip pointing at
+  `secrets doctor`.
 - `tg-notes secrets status` now lists the detected secret stores (`available_stores`),
   each annotated with whether it serves the Secret Service or is merely running —
   gnome-keyring, KeePassXC, KWallet/ksecretd — so it's clear which vault the keyring
@@ -46,6 +55,9 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Fixed
 
+- `secrets migrate --to keyring` no longer overwrites the vault with an empty
+  (unauthorized) session: `migrate_to_keyring` aborts if the exported session string is
+  empty, so a not-logged-in run can't clobber a good vault entry.
 - `contacts set` no longer errors when re-setting a contact to unchanged values: the
   underlying `edit_message` `MessageNotModifiedError` is caught and treated as a successful
   no-op (found while exercising the MCP server).

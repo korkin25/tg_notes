@@ -576,7 +576,10 @@ def test_secrets_migrate_to_keyring(mocker) -> None:
     cfg = config.Config(api_id=1, api_hash="h")
     mocker.patch("tg_notes.cli.config.load", return_value=cfg)
     save = mocker.patch("tg_notes.cli.config.save")
-    mocker.patch("tg_notes.cli.secrets.keyring_available", return_value=True)
+    # mock the probe + migration so the test never touches a real keyring/vault
+    mocker.patch("tg_notes.cli.secrets.keyring_probe", return_value=(True, None))
+    mocker.patch("tg_notes.cli._secret_service_provider", return_value="keepassxc")
+    mocker.patch("tg_notes.cli._available_secret_stores", return_value=[])
     mig = mocker.patch("tg_notes.cli.secrets.migrate_to_keyring")
 
     rc = cli.main(["secrets", "migrate", "--to", "keyring"])
@@ -598,7 +601,94 @@ def test_secrets_migrate_already_active_is_noop(mocker) -> None:
 
 def test_secrets_migrate_keyring_unavailable_returns_1(mocker, capsys) -> None:
     mocker.patch("tg_notes.cli.config.load", return_value=config.Config(api_id=1, api_hash="h"))
-    mocker.patch("tg_notes.cli.secrets.keyring_available", return_value=False)
+    mocker.patch("tg_notes.cli.secrets.keyring_probe", return_value=(False, "not-installed"))
+    mocker.patch("tg_notes.cli._secret_service_provider", return_value=None)
+    mocker.patch("tg_notes.cli._available_secret_stores", return_value=[])
+    mig = mocker.patch("tg_notes.cli.secrets.migrate_to_keyring")  # safety: never real-migrate
 
     assert cli.main(["secrets", "migrate", "--to", "keyring"]) == 1
+    mig.assert_not_called()
     assert "keyring" in capsys.readouterr().err
+
+
+# --- secrets doctor / recommendations (TGN-18) -----------------------------------
+
+
+def _secrets_state(**over):
+    base = {
+        "backend": "file", "configured": True, "has_session": True,
+        "keyring_installed": True, "probe_ok": True, "probe_kind": None,
+        "provider": "keepassxc", "stores": ["keepassxc (serves Secret Service)"],
+    }
+    base.update(over)
+    return base
+
+
+def test_reco_ready_file_backend_suggests_migrate() -> None:
+    recs = cli._secrets_recommendations(_secrets_state(backend="file", probe_ok=True))
+    assert any("migrate --to keyring" in r for r in recs)
+
+
+def test_reco_locked_suggests_confirm_off() -> None:
+    recs = cli._secrets_recommendations(_secrets_state(probe_ok=False, probe_kind="locked"))
+    assert any("confirm" in r.lower() for r in recs)
+
+
+def test_reco_no_collection_suggests_expose_group() -> None:
+    recs = cli._secrets_recommendations(
+        _secrets_state(probe_ok=False, probe_kind="no-collection")
+    )
+    assert any("Expose entries under this group" in r for r in recs)
+
+
+def test_reco_not_installed() -> None:
+    recs = cli._secrets_recommendations(_secrets_state(keyring_installed=False))
+    assert any("tg-notes[keyring]" in r for r in recs)
+
+
+def test_reco_gnome_holds_bus_keepassxc_running_offers_handover() -> None:
+    recs = cli._secrets_recommendations(
+        _secrets_state(
+            provider="gnome-keyring-d", probe_ok=False, probe_kind="no-collection",
+            stores=["gnome-keyring (serves Secret Service)", "keepassxc (running)"],
+        )
+    )
+    assert any("hand it to" in r.lower() for r in recs)
+
+
+def test_reco_not_configured() -> None:
+    recs = cli._secrets_recommendations(_secrets_state(configured=False))
+    assert any("tg-notes setup" in r for r in recs)
+
+
+def test_secrets_doctor_command_json(mocker, capsys) -> None:
+    mocker.patch("tg_notes.cli.config.load", return_value=config.Config(api_id=1, api_hash="h"))
+    mocker.patch("tg_notes.cli.secrets.keyring_probe", return_value=(True, None))
+    mocker.patch("tg_notes.cli._secret_service_provider", return_value="keepassxc")
+    mocker.patch(
+        "tg_notes.cli._available_secret_stores",
+        return_value=["keepassxc (serves Secret Service)"],
+    )
+
+    rc = cli.main(["secrets", "doctor", "--json"])
+
+    assert rc == 0
+    import json as _json
+
+    out = _json.loads(capsys.readouterr().out)
+    assert out["backend"] == "file" and out["probe_ok"] is True
+    assert "recommendations" in out
+
+
+def test_secrets_migrate_keyring_not_ready_shows_recommendations(mocker, capsys) -> None:
+    mocker.patch("tg_notes.cli.config.load", return_value=config.Config(api_id=1, api_hash="h"))
+    mocker.patch("tg_notes.cli.secrets.keyring_probe", return_value=(False, "locked"))
+    mocker.patch("tg_notes.cli._secret_service_provider", return_value="keepassxc")
+    mocker.patch("tg_notes.cli._available_secret_stores", return_value=["keepassxc (running)"])
+    mig = mocker.patch("tg_notes.cli.secrets.migrate_to_keyring")
+
+    rc = cli.main(["secrets", "migrate", "--to", "keyring"])
+
+    assert rc == 1
+    mig.assert_not_called()
+    assert "confirm" in capsys.readouterr().err.lower()

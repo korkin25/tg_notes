@@ -66,6 +66,11 @@ def _setup(args: argparse.Namespace) -> int:
     cfg.storage_group_id = result["group_id"]
     config.save(cfg)
     print(json.dumps(result, ensure_ascii=False))
+    if not cfg.secrets_backend:
+        sys.stderr.write(
+            "\ntip: to keep your api_hash + session in a secret store (KeePassXC/keyring) "
+            "instead of local files, run `tg-notes secrets doctor`.\n"
+        )
     return 0
 
 
@@ -359,6 +364,108 @@ def _available_secret_stores() -> list[str]:
     return sorted(stores)
 
 
+def _secrets_state(cfg: config.Config) -> dict:
+    """Gather the full secrets diagnosis (backend, vault probe, provider, stores)."""
+    backend = secrets.get_backend(cfg)
+    probe_ok, probe_kind = secrets.keyring_probe()
+    return {
+        "backend": backend.name,
+        "configured": backend.is_configured(),
+        "has_session": backend.has_session(),
+        "keyring_installed": probe_kind != "not-installed",
+        "probe_ok": probe_ok,
+        "probe_kind": probe_kind,
+        "provider": _secret_service_provider(),
+        "stores": _available_secret_stores(),
+    }
+
+
+def _secrets_recommendations(state: dict) -> list[str]:
+    """Turn a secrets diagnosis into ordered, actionable recommendations."""
+    recs: list[str] = []
+    if not state["configured"]:
+        recs.append("Not configured — run `tg-notes setup` to add api_id/api_hash and log in.")
+    if not state["keyring_installed"]:
+        recs.append(
+            'Secret-store support is not installed — `pipx install "tg-notes[keyring]"` to '
+            "use a vault; otherwise the file backend is fine."
+        )
+        return recs
+
+    provider = state["provider"]
+    stores = state["stores"]
+    kp_running = any(s.startswith("keepassxc (running") for s in stores)
+    kp_serves = any(s.startswith("keepassxc (serves") for s in stores)
+
+    if provider is None:
+        recs.append(
+            "No Secret Service provider is running — start a vault (KeePassXC / gnome-keyring "
+            "/ KWallet) or stay on the file backend."
+        )
+    elif "gnome-keyring" in provider and kp_running and not kp_serves:
+        recs.append(
+            "KeePassXC is running but gnome-keyring holds the Secret Service. To hand it to "
+            "KeePassXC: disable gnome-keyring's secrets (systemd user drop-in "
+            "`--components=pkcs11`; `~/.config/autostart/gnome-keyring-secrets.desktop` with "
+            "`Hidden=true`; a user D-Bus override "
+            "`~/.local/share/dbus-1/services/org.freedesktop.secrets.service` → `/bin/false`), "
+            "enable KeePassXC autostart + `loginctl enable-linger`, then re-login."
+        )
+
+    if state["probe_ok"]:
+        if state["backend"] == "file":
+            recs.append(
+                "The vault works — move your secrets into it with "
+                "`tg-notes secrets migrate --to keyring`."
+            )
+        else:
+            recs.append("Vault backend is active and working — nothing to do.")
+    else:
+        kind = state["probe_kind"]
+        if kind == "no-collection":
+            recs.append(
+                "The vault has no default collection — in KeePassXC: Database Settings → "
+                "Secret Service Integration → enable 'Expose entries under this group' and "
+                "pick/create a group."
+            )
+        elif kind == "locked":
+            recs.append(
+                "The vault confirms every access — in KeePassXC Settings → Secret Service "
+                "Integration, turn OFF 'confirm when passwords are retrieved by clients' "
+                "(otherwise every read prompts and unattended runs break)."
+            )
+        elif kind and kind.startswith("error:"):
+            recs.append(
+                f"Vault round-trip failed ({kind}) — make sure the vault app is running and "
+                "its database is unlocked."
+            )
+    return recs
+
+
+def _secrets_doctor(args: argparse.Namespace) -> int:
+    """Diagnose the secrets setup and print actionable recommendations (TGN-18)."""
+    state = _secrets_state(config.load())
+    recs = _secrets_recommendations(state)
+    if getattr(args, "json", False):
+        print(json.dumps({**state, "recommendations": recs}, ensure_ascii=False))
+        return 0
+    probe = "OK" if state["probe_ok"] else f"FAILED ({state['probe_kind']})"
+    print("tg-notes secrets — diagnosis")
+    print(f"  backend         : {state['backend']}")
+    print(f"  configured      : {state['configured']}")
+    print(f"  session present : {state['has_session']}")
+    print(f"  Secret Service  : {state['provider'] or '(nobody serves org.freedesktop.secrets)'}")
+    print(f"  vault round-trip: {probe}")
+    if state["stores"]:
+        print(f"  detected stores : {', '.join(state['stores'])}")
+    print("\nRecommendations:")
+    for i, rec in enumerate(recs, 1):
+        print(f"  {i}. {rec}")
+    if not recs:
+        print("  none — you're all set.")
+    return 0
+
+
 def _secrets_status(args: argparse.Namespace) -> int:
     """Print the active secrets backend and what's available (TGN-18)."""
     cfg = config.load()
@@ -384,11 +491,12 @@ def _secrets_migrate(args: argparse.Namespace) -> int:
         return 0
     try:
         if args.to == "keyring":
-            if not secrets.keyring_available():
-                sys.stderr.write(
-                    "no working keyring/Secret Service found — install `tg-notes[keyring]` "
-                    "and ensure a provider (gnome-keyring / KWallet / KeePassXC) is unlocked\n"
-                )
+            state = _secrets_state(cfg)
+            if not state["probe_ok"]:
+                sys.stderr.write("cannot migrate — the secret store is not ready:\n")
+                for rec in _secrets_recommendations(state):
+                    sys.stderr.write(f"  - {rec}\n")
+                sys.stderr.write("run `tg-notes secrets doctor` for the full diagnosis.\n")
                 return 1
             secrets.migrate_to_keyring(cfg)
         else:
@@ -493,6 +601,11 @@ def build_parser() -> argparse.ArgumentParser:
     secrets_sub.add_parser(
         "status", help="show the active secrets backend and what's available"
     ).set_defaults(func=_secrets_status)
+    p_sec_doc = secrets_sub.add_parser(
+        "doctor", help="diagnose the secret store and recommend setup/migration steps"
+    )
+    p_sec_doc.add_argument("--json", action="store_true", help="machine-readable output")
+    p_sec_doc.set_defaults(func=_secrets_doctor)
     p_sec_mig = secrets_sub.add_parser("migrate", help="move secrets between backends")
     p_sec_mig.add_argument(
         "--to", required=True, choices=["file", "keyring"], help="target backend"
