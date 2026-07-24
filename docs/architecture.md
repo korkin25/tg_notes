@@ -56,8 +56,9 @@ no `--caption` was given, and (in the default *auto* mode) an engine is availabl
 engine is missing (`TranscriptionUnavailable`) or fails (`TranscriptionError`) the upload
 still happens with no caption and a one-line stderr note. The whisper engines shell out
 to `ffmpeg` to decode audio, and `faster-whisper` downloads its model on first use.
-`transcriber` / `whisper_cmd` / `whisper_model` are non-secret config keys. (Phase 3 will
-mirror this best-effort audio auto-transcription in the MCP server and capture skill.)
+`transcriber` / `whisper_cmd` / `whisper_model` are non-secret config keys. The MCP
+`note_add_file` tool and the capture skill mirror this same best-effort audio
+auto-transcription (an agent may instead pass its own caption to skip it).
 
 ### Contact message schema
 
@@ -103,7 +104,10 @@ per-access-confirmation vault like KeePassXC prompts-and-proceeds instead of fai
 with "locked"; entries stay compatible with ones written by the plain `keyring` library
 (looked up by `{service, username}`), and where `secretstorage` is unavailable it falls
 back to `keyring`. The default (file) path never requires an interactive vault unlock, so
-scheduled/unattended runs keep working. On Linux with the keyring backend the CLI first
+scheduled/unattended runs keep working. Before opening the Secret Service connection the
+backend self-heals `DBUS_SESSION_BUS_ADDRESS` (points it at `/run/user/<uid>/bus` when the
+variable is unset and the socket exists), so a process spawned with a sanitized environment
+— an MCP host or a cron job — can still reach the vault. On Linux with the keyring backend the CLI first
 re-execs itself through a copy of the interpreter placed at `<venv>/libexec/tg-notes` (venv
 packages re-added via `site.addsitedir` under `-S`), so the Secret Service confirmation
 prompt identifies the app as `tg-notes` rather than `python3.12`; it is best-effort and a

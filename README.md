@@ -61,13 +61,17 @@ The skills drive the CLI, so `tg-notes` must be on `PATH`. The two skills:
   report is a preset).
 
 For agent hosts that can't shell out (Claude Desktop, …), a local **stdio MCP server**
-exposes the same core (`note_add` / `notes_list` / `contacts_list` / `send`):
+exposes the same core (`note_add` / `note_add_file` / `notes_list` / `contacts_list` /
+`send`). `note_add_file` uploads a local file as a media note — audio auto-transcribes to
+the caption, or the agent passes its own `caption` (e.g. an image description) to skip it:
 
 ```bash
 pipx install "tg-notes[mcp]"   # then point your MCP client at the `tg-notes-mcp` command
 ```
 
-It runs over stdio only — the session and secrets never leave the machine.
+It runs over stdio only — the session and secrets never leave the machine. When the host
+spawns the server with a sanitized environment, the (opt-in) keyring backend self-heals
+`DBUS_SESSION_BUS_ADDRESS` so it can still reach the Secret Service.
 
 Available so far:
 

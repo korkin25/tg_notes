@@ -16,9 +16,12 @@ blocking core call to a worker thread via :func:`asyncio.to_thread`.
 from __future__ import annotations
 
 import asyncio
+import os
 import sys
 
+# `transcribe` is aliased to `_transcribe` — it is a parameter name on note_add_file below.
 from . import config, telegram
+from . import transcribe as _transcribe
 from .cli import _parse_since
 
 SERVER_NAME = "tg-notes"
@@ -36,6 +39,53 @@ async def note_add(
     cfg = config.load()
     return await asyncio.to_thread(
         telegram.note_add, cfg, notebook=notebook, text=text, hashtags=hashtags
+    )
+
+
+async def note_add_file(
+    file: str,
+    notebook: str = "daily",
+    caption: str | None = None,
+    transcribe: bool = True,
+    hashtags: list[str] | None = None,
+) -> dict:
+    """Upload a LOCAL file as a note into a notebook topic (created on demand).
+
+    ``file`` is a path on this machine — a photo, video, audio, or document — stored as
+    native Telegram media (the kind is auto-detected). For an audio file with no ``caption``
+    the audio is auto-transcribed into the caption (best-effort, local whisper), mirroring the
+    CLI; pass your own ``caption`` (e.g. a description of an image) to skip transcription, or
+    set ``transcribe=False`` to never transcribe. Returns the posted note (with ``media_type``
+    and ``caption``).
+    """
+    if not os.path.exists(file):
+        raise FileNotFoundError(f"file not found: {file}")
+    cfg = config.load()
+    # Best-effort audio transcription, mirroring the CLI handler: only when enabled, no
+    # caption was given, the file is audio, and a local engine is available. A missing/failing
+    # engine never aborts the upload — it just proceeds with no caption.
+    if (
+        transcribe
+        and caption is None
+        and _transcribe.is_audio(file)
+        and _transcribe.available_transcriber(cfg) is not None
+    ):
+        try:
+            text = await asyncio.to_thread(_transcribe.transcribe, file, cfg)
+            caption = text or None
+        except (_transcribe.TranscriptionUnavailable, _transcribe.TranscriptionError) as exc:
+            sys.stderr.write(
+                f"tg-notes: audio transcription failed ({exc}) — "
+                "uploading the file without a caption\n"
+            )
+            caption = None
+    return await asyncio.to_thread(
+        telegram.note_add_file,
+        cfg,
+        notebook=notebook,
+        file_path=file,
+        caption=caption,
+        hashtags=hashtags,
     )
 
 
@@ -68,7 +118,7 @@ async def send(contact: str, text: str, dry_run: bool = False) -> dict:
 
 
 #: The tools exposed by the server, in registration order.
-TOOLS = (note_add, notes_list, contacts_list, send)
+TOOLS = (note_add, note_add_file, notes_list, contacts_list, send)
 
 
 def build_server():

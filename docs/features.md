@@ -14,7 +14,9 @@
    `tg-notes note add --file <path> [--caption <text>]` uploads a photo, video, audio, or
    document into the notebook topic as native Telegram media (Telethon auto-detects the
    kind). The `--caption` is the note's searchable text; `notes list` reports each note's
-   media type and returns the caption as its `text`.
+   media type and returns the caption as its `text`. The same media capture is available to
+   agents from the capture skill and from the MCP `note_add_file` tool (audio auto-transcribes;
+   an agent may pass its own caption, e.g. an image description, to skip transcription).
 5. **Audio auto-transcription.** When the `--file` is audio (`.ogg`/`.opus`/`.mp3`/`.m4a`/
    `.wav`/…) and no `--caption` is given, tg-notes transcribes it **locally** and uses the
    transcript as the caption — so a dictated voice note becomes searchable text with no
@@ -44,7 +46,9 @@
 11. **Standalone CLI (`tg-notes`).** Does all Telegram I/O; usable on its own or from a
     scheduler. `tg-notes setup` provisions the store idempotently — creates or attaches
     the private forum supergroup, ensures the `contacts` topic and a default notebook,
-    and pins a recovery marker so the group can be re-found if local config is lost.
+    and pins a recovery marker so the group can be re-found if local config is lost. When
+    spawned with a sanitized environment (a cron job, an MCP host), the opt-in keyring
+    backend self-heals `DBUS_SESSION_BUS_ADDRESS` so it can still reach the Secret Service.
 12. **Agent Skills.** Drive the CLI and do the writing/summarizing — Claude Code first,
     portable to other agent runtimes.
 13. **Easy to install.** Distributable as a Claude plugin via a git marketplace; the CLI

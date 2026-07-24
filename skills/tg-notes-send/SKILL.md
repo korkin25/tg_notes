@@ -29,7 +29,10 @@ to *whom* and shells out. Capture (writing notes) is the separate `tg-notes` ski
 
 2. **Read the notes.** `tg-notes notes list --notebook <nb> [--since <t>]` (default
    notebook `daily`). Choose `--since` from the request (e.g. `today` for a daily report).
-   Empty list → nothing to send; say so and stop.
+   Each note is JSON (`message_id`, `date`, `text`, `media`); a **media note** (photo,
+   audio, …) carries a `media` type and its caption in `text` — compile from that caption
+   like any other note (the media file itself is not resent). Empty list → nothing to send;
+   say so and stop.
 
 3. **Compile for this recipient.** Rewrite the raw notes strictly per the contact's
    `style` prompt, in the user's language (Russian for this user), concise, no filler:
