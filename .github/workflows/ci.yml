@@ -231,4 +231,11 @@ jobs:
             exit 0
           fi
           export TG_NOTES_SANDBOX_DIR="$RUNNER_TEMP/tgn-sandbox"
-          python scripts/sandbox.py pytest -- tests/test_live_functional.py -v
+          # Full data path across both frontends: CLI (test_live_functional), MCP tools
+          # (test_live_mcp) and media round-trips (test_live_media). The secure-store
+          # (keyring) suite needs a Secret Service CI does not have, so it self-skips;
+          # audio transcription needs a whisper engine and is left out.
+          python scripts/sandbox.py pytest -- \
+            tests/test_live_functional.py \
+            tests/test_live_mcp.py \
+            tests/test_live_media.py -v
