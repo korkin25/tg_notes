@@ -6,20 +6,16 @@ live in `docs/`; stages, current status, and checklists are tracked here. Done t
 
 ## Current state / next action
 
-- Branch: `feature/tgn-4` (off `main`).
-- TGN-1, TGN-2, TGN-3 — done, in `CHANGELOG.md`. TGN-3 verified end-to-end on the real
-  account (@korkin25): storage group `-1004432534270` created, second run attached
-  idempotently.
-- TGN-4 (`tg-notes note add`) — **implemented** on `feature/tgn-4`: `telegram.note_add`
-  (+ `_compose_note` / `_normalize_hashtag`, `NotSetUpError`) and the `note add` CLI
-  (file/stdin text, repeatable `--hashtag`); 60 tests green (Telethon mocked), ruff +
-  bandit clean.
+- Branch: `main` (feature/tgn-4 merged).
+- TGN-1..TGN-4 — done, in `CHANGELOG.md`. TGN-4 verified end-to-end on the real account
+  (@korkin25): notes posted into `daily` (topic 5, idempotent) and a fresh `tgn4test`
+  notebook (topic 9 created on demand); fetched back to confirm the composed body incl.
+  `#test #tgn4`. Error paths verified live too: argparse (2), unreadable file (1), empty
+  note (1), not-set-up (4), not-configured (1 + guidance), not-authorized (3).
 - Logged TGN-18 (pluggable secrets backend — Secret Service/keyring incl. KeePassXC,
   `StringSession` in the vault) as later work; the file backend stays the default.
-- **NEXT ACTION:** live-verify TGN-4 by running `tg-notes note add` against the real
-  account (posts into the `daily` topic; check the message lands with the hashtags). Once
-  confirmed, merge `feature/tgn-4` → `main`, move TGN-4 to `CHANGELOG.md` as ✅, and start
-  TGN-5 (`notes list`). Do not mark TGN-4 done before that verification.
+- **NEXT:** TGN-5 (`tg-notes notes list`) — start on a new `feature/tgn-5` branch (TDD):
+  fetch raw notes from a notebook within a time range (`--since`), to feed compilation.
 
 ## Legend
 
@@ -40,14 +36,12 @@ Decision items use `TGN-D<n>`.
 
 ## Current work
 
-- **TGN-4 🟡** — `tg-notes note add` implemented on `feature/tgn-4`, 60 tests green;
-  awaiting live verification against the real account before merge.
+_None in progress. Next up: TGN-5 (see Phase 1)._
 
 ## Phase 1 — CLI core (`tg-notes`)
 
 | ID | Status | Task | Details |
 | --- | --- | --- | --- |
-| TGN-4 | 🟡 | `tg-notes note add` | Append a note to a notebook topic (create the topic on demand); optional hashtags. Reads text from file or stdin (`-`); `--hashtag` repeatable; refuses empty notes; prints posted note as JSON. Implemented + tests green; pending live verification. |
 | TGN-5 | ⬜ | `tg-notes notes list` | Fetch raw notes from a notebook within a time range (feeds compilation). |
 | TGN-6 | ⬜ | Contacts (address book) | `contacts list/set/remove`; the message-per-contact schema in the `contacts` topic. |
 | TGN-7 | ⬜ | `tg-notes send` | Post given text to a contact's chat/topic; optional mention; forum topic via `reply_to`. |
