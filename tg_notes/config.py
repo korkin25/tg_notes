@@ -31,6 +31,8 @@ class Config:
     api_hash: str | None = None
     session_path: str | None = None
     storage_group_id: int | None = None
+    #: Where secrets live: "file" (default — config.toml + *.session) or "keyring".
+    secrets_backend: str | None = None
 
     @property
     def session(self) -> str:
@@ -50,6 +52,7 @@ def load() -> Config:
         api_hash=data.get("api_hash"),
         session_path=data.get("session_path"),
         storage_group_id=data.get("storage_group_id"),
+        secrets_backend=data.get("secrets_backend"),
     )
 
 
@@ -69,6 +72,7 @@ def _dump_toml(cfg: Config) -> str:
         "api_hash": cfg.api_hash,
         "session_path": cfg.session_path,
         "storage_group_id": cfg.storage_group_id,
+        "secrets_backend": cfg.secrets_backend,
     }
     for key, value in fields.items():
         if value is None:

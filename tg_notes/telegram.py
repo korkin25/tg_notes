@@ -7,8 +7,6 @@ project funnels through here; no AI logic lives in this layer.
 """
 from __future__ import annotations
 
-import os
-
 import telethon.sync  # noqa: F401  # enables synchronous TelegramClient methods
 from telethon import TelegramClient, utils
 from telethon.errors import MessageNotModifiedError
@@ -19,6 +17,7 @@ from telethon.tl.functions.messages import (
 )
 
 from . import contacts as contacts_mod
+from . import secrets
 from .config import Config
 
 #: Fixed title for the storage supergroup — part of the recovery tag (docs/architecture).
@@ -57,11 +56,12 @@ def build_client(cfg: Config) -> TelegramClient:
     Raises:
         NotConfiguredError: if ``cfg`` has no ``api_id`` / ``api_hash``.
     """
-    if not cfg.is_configured():
+    backend = secrets.get_backend(cfg)
+    if not backend.is_configured():
         raise NotConfiguredError(
             "api_id/api_hash are not set — configure tg-notes before connecting"
         )
-    return TelegramClient(cfg.session, cfg.api_id, cfg.api_hash)
+    return TelegramClient(backend.session_arg(), cfg.api_id, backend.api_hash())
 
 
 def connect_authorized(cfg: Config) -> TelegramClient:
@@ -99,31 +99,22 @@ def login(cfg: Config) -> dict:
     """Run the one-time interactive login and return the account identity.
 
     ``client.start()`` prompts for phone number, the login code, and 2FA password as
-    needed, then writes the ``*.session`` file (full account access — locked to 0o600).
-    Kept thin and side-effectful on purpose; the unit tests cover the pieces below it.
+    needed. Where the resulting session is persisted depends on the active secrets backend
+    (a ``*.session`` file locked to 0o600, or a ``StringSession`` in the keyring).
 
     Raises:
         NotConfiguredError: if the credentials are missing.
     """
-    session_file = cfg.session
-    if not session_file.endswith(".session"):
-        session_file += ".session"
-    parent = os.path.dirname(session_file)
-    if parent:
-        os.makedirs(parent, exist_ok=True)
-        os.chmod(parent, 0o700)
-
-    client = build_client(cfg)
-    old_umask = os.umask(0o077)  # session file must be created private (0600), no race window
-    try:
-        client.start()  # interactive: phone / code / 2FA
-        me = client.get_me()
-        if os.path.exists(session_file):
-            os.chmod(session_file, 0o600)
-        return {"id": me.id, "username": me.username, "first_name": me.first_name}
-    finally:
-        os.umask(old_umask)
-        client.disconnect()
+    backend = secrets.get_backend(cfg)
+    with backend.login_guard():
+        client = build_client(cfg)
+        try:
+            client.start()  # interactive: phone / code / 2FA
+            me = client.get_me()
+            backend.persist_login(client)  # file: chmod 600; keyring: store StringSession
+            return {"id": me.id, "username": me.username, "first_name": me.first_name}
+        finally:
+            client.disconnect()
 
 
 def setup(cfg: Config, notebook: str = DEFAULT_NOTEBOOK) -> dict:

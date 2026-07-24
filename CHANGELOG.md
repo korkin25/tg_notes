@@ -9,6 +9,20 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
+- Pluggable secrets backend (TGN-18): `tg_notes/secrets.py` abstracts where the two real
+  secrets — `api_hash` and the Telethon session — live. **file** (default, unchanged): in
+  `config.toml` (600) + a `*.session` file. **keyring** (opt-in, `tg-notes[keyring]`): in
+  the OS Secret Service via the `keyring` library (gnome-keyring / KWallet / KeePassXC —
+  whichever owns `org.freedesktop.secrets`), the session stored as a Telethon
+  `StringSession`; provider-agnostic, so enabling KeePassXC's Secret Service integration
+  routes secrets there. `api_id`/`storage_group_id` stay in config (not secret). New CLI:
+  `tg-notes secrets status` (active backend, whether configured/has-session, keyring
+  availability, and which process owns the Secret Service bus) and `tg-notes secrets
+  migrate --to file|keyring` (moves both secrets; keyring migration verifies the vault
+  round-trip before removing the on-disk session). `build_client`/`login` in `telegram.py`
+  now resolve credentials + session through the active backend. Verified end-to-end on the
+  real account (isolated session copy: file → keyring → `whoami` from the vault → back to
+  file), the file default untouched. Tests in `tests/test_secrets.py`.
 - Local MCP server (TGN-17): `tg-notes-mcp` — a stdio MCP server (`mcp` / FastMCP) that
   exposes the core as tools `note_add` / `notes_list` / `contacts_list` / `send`, so agent
   hosts that can't shell out (Claude Desktop, …) can drive tg-notes. Same local core; the
