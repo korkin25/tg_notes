@@ -114,7 +114,8 @@ tg-notes secrets status
 tg-notes secrets doctor                    # diagnose the store + get setup/migration steps
 tg-notes secrets migrate --to keyring     # or: --to file to move back
 # Using KeePassXC as the store (serve Secret Service, dedicated group, the
-# confirmation trade-off): see docs/keepassxc.md.
+# confirmation trade-off): see docs/keepassxc.md. On Linux + keyring, the CLI re-execs
+# through a named launcher so the vault prompt shows "tg-notes", not "python3.12".
 # Test setup/doctor/migrate end-to-end against a throwaway isolated install
 # (never touches the real config/session/vault): see docs/sandbox-testing.md.
 

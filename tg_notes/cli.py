@@ -765,6 +765,12 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
+    # Before argparse or any secrets access: on Linux + keyring backend, re-exec through a
+    # named launcher so the vault confirmation prompt identifies the app as tg-notes (a
+    # no-op everywhere else; see tg_notes/relaunch.py).
+    from .relaunch import relaunch_as_named
+
+    relaunch_as_named()
     parser = build_parser()
     args = parser.parse_args(argv)
     return args.func(args)

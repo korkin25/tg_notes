@@ -28,6 +28,10 @@ live in `docs/`; stages, current status, and checklists are tracked here. Done t
   opt-in keyring (Secret Service; session as `StringSession`), `tg-notes secrets
   status|doctor|migrate`. Verified end-to-end on an isolated session copy (file → keyring →
   `whoami` from the vault → back to file); the real file default was left untouched.
+- Vault-prompt-name launcher done (`tg_notes/relaunch.py`): on Linux + keyring the CLI
+  re-execs through `<venv>/libexec/tg-notes` (interpreter copy; venv packages via
+  `site.addsitedir` under `-S`) so the KeePassXC/Secret Service prompt shows `tg-notes`,
+  not `python3.12`. Best-effort (read-only venv → skipped); fully mocked unit tests.
 - **All planned work is DONE.** The only open item is **TGN-15** (submit the plugin to a
   community marketplace) — a user web action, optional; the repo side already passes
   `claude plugin validate --strict` and the plugin installs from `korkin25/tg_notes`.

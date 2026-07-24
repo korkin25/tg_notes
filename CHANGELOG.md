@@ -9,6 +9,14 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
+- On Linux with the keyring backend, the CLI re-execs through a named launcher
+  (`<venv>/libexec/tg-notes`, a copy of the interpreter with the venv's site-packages
+  re-added via `site.addsitedir` under `-S`) so the vault confirmation prompt
+  (KeePassXC / Secret Service) identifies the app as `tg-notes` instead of `python3.12`.
+  The launcher is created once and reused; best-effort — a read-only venv (or any
+  copy/exec failure) silently skips it and the CLI keeps working (the prompt then shows
+  `python`). `TG_NOTES_RELAUNCHED` is an internal loop guard. No-op on non-Linux, on the
+  file backend, or in frozen builds.
 - `docs/sandbox-testing.md` — a protocol for isolated end-to-end testing of
   `setup`/`secrets doctor`/`secrets migrate`/pickers via `TG_NOTES_CONFIG_DIR` +
   `TG_NOTES_KEYRING_SERVICE`, so a throwaway install never touches the real
