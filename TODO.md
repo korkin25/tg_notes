@@ -11,10 +11,13 @@ live in `docs/`; stages, current status, and checklists are tracked here. Done t
   in `CHANGELOG.md`. TGN-2 verified end-to-end: `tg-notes whoami` returns the real
   account (@korkin25).
 - TGN-3 (`tg-notes setup`) — **implemented** on `feature/tgn-3`: `telegram.setup` +
-  helpers and the `setup` CLI command; 39 tests green (Telethon mocked), ruff + bandit
-  clean.
+  helpers, the `setup` CLI command, and first-run onboarding (setup prompts for
+  `api_id`/`api_hash`, saves them 600, runs `login`, then provisions); 40 tests green
+  (Telethon mocked), ruff + bandit clean.
+- Logged TGN-18 (pluggable secrets backend — Secret Service/keyring incl. KeePassXC,
+  `StringSession` in the vault) as later work; the file backend stays the default.
 - **NEXT ACTION:** live-verify TGN-3 by running `tg-notes setup` against the real account
-  (creates the forum supergroup, `contacts` + `daily` topics, pinned marker). Once
+  (onboarding → forum supergroup, `contacts` + `daily` topics, pinned marker). Once
   confirmed working, merge `feature/tgn-3` → `main`, move TGN-3 to `CHANGELOG.md` as ✅,
   and start TGN-4 (`note add`). Do not mark TGN-3 done before that verification.
 
@@ -44,7 +47,8 @@ Decision items use `TGN-D<n>`.
 
 | ID | Status | Task | Details |
 | --- | --- | --- | --- |
-| TGN-3 | 🟡 | `tg-notes setup` | Create or attach a private forum supergroup; ensure the `contacts` topic and a default notebook; persist the group id in local config; tag the group (fixed title + pinned marker) for recovery (TGN-D2). Implemented + tests green; pending live verification. |
+| TGN-3 | 🟡 | `tg-notes setup` | Create or attach a private forum supergroup; ensure the `contacts` topic and a default notebook; persist the group id in local config; tag the group (fixed title + pinned marker) for recovery (TGN-D2). Drives first-run onboarding (prompts `api_id`/`api_hash`, saves 600, runs `login`, retries). Implemented + tests green; pending live verification. |
+| TGN-18 | ⬜ | Pluggable secrets backend (later) | Abstract secret storage behind a backend interface: **file** (default — `config.toml` 600 + `*.session`) and an **opt-in Secret Service** backend via `keyring`/`secretstorage`, auto-detected when a provider is present (KeePassXC, gnome-keyring, KWallet; macOS Keychain / Windows Cred Manager). Store the Telethon session as a `StringSession` in the vault (highest-value secret) instead of a file. Must keep unattended runs working (scheduled daily-report): the default path never requires an interactive master-password unlock. Deferred by agreement. |
 | TGN-4 | ⬜ | `tg-notes note add` | Append a note to a notebook topic (create the topic on demand); optional hashtags. |
 | TGN-5 | ⬜ | `tg-notes notes list` | Fetch raw notes from a notebook within a time range (feeds compilation). |
 | TGN-6 | ⬜ | Contacts (address book) | `contacts list/set/remove`; the message-per-contact schema in the `contacts` topic. |

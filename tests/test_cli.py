@@ -44,10 +44,12 @@ def test_unimplemented_stubs_return_exit_code_2(argv: list[str]) -> None:
     assert cli.main(argv) == 2
 
 
-def test_setup_command_persists_returned_group_id(mocker) -> None:
+def test_setup_command_ready_persists_group_id(mocker) -> None:
     cfg = config.Config(api_id=1, api_hash="h")
     mocker.patch("tg_notes.cli.config.load", return_value=cfg)
     save = mocker.patch("tg_notes.cli.config.save")
+    ask = mocker.patch("tg_notes.cli._ask")
+    login = mocker.patch("tg_notes.cli.telegram.login")
     setup = mocker.patch(
         "tg_notes.cli.telegram.setup",
         return_value={"group_id": -100777, "created": True, "title": "t", "topics": {}},
@@ -57,6 +59,8 @@ def test_setup_command_persists_returned_group_id(mocker) -> None:
 
     assert rc == 0
     setup.assert_called_once_with(cfg, notebook="daily")
+    ask.assert_not_called()  # already configured → no credential prompt
+    login.assert_not_called()  # already authorized → no login
     assert cfg.storage_group_id == -100777
     save.assert_called_once_with(cfg)
 
@@ -74,36 +78,67 @@ def test_setup_command_passes_custom_notebook(mocker) -> None:
     setup.assert_called_once_with(cfg, notebook="weekly")
 
 
-def test_setup_command_not_configured_instructs_and_returns_1(mocker, capsys) -> None:
-    mocker.patch("tg_notes.cli.config.load", return_value=config.Config())
-    mocker.patch(
-        "tg_notes.cli.telegram.setup", side_effect=telegram.NotConfiguredError("nope")
-    )
+def test_setup_command_prompts_credentials_then_logs_in(mocker) -> None:
+    cfg = config.Config()  # nothing configured yet
+    mocker.patch("tg_notes.cli.config.load", return_value=cfg)
     save = mocker.patch("tg_notes.cli.config.save")
+    mocker.patch("tg_notes.cli._ask", side_effect=["1234567", "hexhash"])
+    login = mocker.patch("tg_notes.cli.telegram.login")
+    setup = mocker.patch(
+        "tg_notes.cli.telegram.setup",
+        side_effect=[
+            telegram.NotAuthorizedError("fresh session"),
+            {"group_id": -100, "created": True, "title": "t", "topics": {}},
+        ],
+    )
+
+    rc = cli.main(["setup"])
+
+    assert rc == 0
+    assert cfg.api_id == 1234567
+    assert cfg.api_hash == "hexhash"
+    login.assert_called_once_with(cfg)  # setup launches login after saving credentials
+    assert setup.call_count == 2  # first raises NotAuthorized, retried after login
+    assert save.call_count == 2  # creds saved (600) before login, group id after setup
+    assert cfg.storage_group_id == -100
+
+
+def test_setup_command_aborts_on_blank_credentials(mocker, capsys) -> None:
+    cfg = config.Config()
+    mocker.patch("tg_notes.cli.config.load", return_value=cfg)
+    save = mocker.patch("tg_notes.cli.config.save")
+    mocker.patch("tg_notes.cli._ask", side_effect=["", ""])
+    login = mocker.patch("tg_notes.cli.telegram.login")
+    setup = mocker.patch("tg_notes.cli.telegram.setup")
 
     rc = cli.main(["setup"])
 
     assert rc == 1
-    save.assert_not_called()  # nothing to persist on the failure path
-    err = capsys.readouterr().err
-    # setup self-instructs: where to get credentials, where to put them, what to run next
-    assert "my.telegram.org" in err
-    assert str(config.config_path()) in err
-    assert "tg-notes login" in err
+    setup.assert_not_called()
+    login.assert_not_called()
+    save.assert_not_called()
+    assert "my.telegram.org" in capsys.readouterr().err  # falls back to guidance
 
 
-def test_setup_command_not_authorized_instructs_and_returns_3(mocker, capsys) -> None:
-    mocker.patch(
-        "tg_notes.cli.config.load", return_value=config.Config(api_id=1, api_hash="h")
-    )
-    mocker.patch(
-        "tg_notes.cli.telegram.setup", side_effect=telegram.NotAuthorizedError("login")
-    )
+def test_setup_command_configured_but_not_logged_in_runs_login(mocker) -> None:
+    cfg = config.Config(api_id=1, api_hash="h")
+    mocker.patch("tg_notes.cli.config.load", return_value=cfg)
     save = mocker.patch("tg_notes.cli.config.save")
+    ask = mocker.patch("tg_notes.cli._ask")
+    login = mocker.patch("tg_notes.cli.telegram.login")
+    setup = mocker.patch(
+        "tg_notes.cli.telegram.setup",
+        side_effect=[
+            telegram.NotAuthorizedError("no session"),
+            {"group_id": -55, "created": False, "title": "t", "topics": {}},
+        ],
+    )
 
     rc = cli.main(["setup"])
 
-    assert rc == 3
-    save.assert_not_called()
-    err = capsys.readouterr().err
-    assert "tg-notes login" in err  # tells the user exactly how to authorize
+    assert rc == 0
+    ask.assert_not_called()  # already configured → no credential prompt
+    login.assert_called_once_with(cfg)
+    assert setup.call_count == 2
+    assert cfg.storage_group_id == -55
+    save.assert_called_once_with(cfg)  # only the group-id save (creds already present)

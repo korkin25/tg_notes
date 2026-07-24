@@ -46,7 +46,9 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   `_ensure_topics` / `_pin_marker`) built on Telethon's forum raw API
   (`CreateChannelRequest(megagroup=True, forum=True)`, `CreateForumTopicRequest`,
   `GetForumTopicsRequest`); tests in `tests/test_setup.py` with Telethon fully mocked.
-  When Telegram is not usable yet, `setup` self-instructs instead of failing tersely:
-  missing credentials print step-by-step onboarding (get api_id/api_hash at
-  my.telegram.org, where to save them, `chmod 600`, `tg-notes login`, re-run), and a
-  missing login points at `tg-notes login`.
+  `setup` drives first-run onboarding itself: when `api_id`/`api_hash` are missing it
+  prompts for them and saves them to local config (mode 600); when the device is not
+  logged in it runs the interactive `login` (phone → code → 2FA) and retries the
+  provisioning. If the prompt is left blank (or the values are unusable) it falls back to
+  printing step-by-step manual guidance (my.telegram.org → config path → `chmod 600` →
+  `login` → re-run) and exits nonzero.

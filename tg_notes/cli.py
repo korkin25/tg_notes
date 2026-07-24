@@ -45,33 +45,73 @@ def _login(args: argparse.Namespace) -> int:
 
 
 def _setup(args: argparse.Namespace) -> int:
-    """Provision/attach the storage group, then persist its id to local config.
+    """Provision/attach the storage group, driving first-run onboarding as needed.
 
-    When Telegram is not yet usable, ``setup`` does not just fail — it prints the exact
-    steps to get there (get credentials, where to save them, run ``login``, re-run).
+    ``setup`` is self-sufficient: if the Telegram credentials are missing it prompts for
+    them and saves them to local config (mode 600); if the device is not logged in it runs
+    the interactive ``login`` (phone → code → 2FA) and retries. Then it creates or attaches
+    the storage group and persists its id.
     """
     cfg = config.load()
+
+    # 1. Ensure credentials — ask and persist (chmod 600) when they are missing.
+    if not cfg.is_configured():
+        if not _prompt_credentials(cfg):
+            _instruct_configure()
+            return 1
+        config.save(cfg)
+
+    # 2. Provision; a fresh/expired session surfaces as NotAuthorized → log in and retry.
     try:
         result = telegram.setup(cfg, notebook=args.notebook)
     except telegram.NotConfiguredError:
         _instruct_configure()
         return 1
     except telegram.NotAuthorizedError:
-        _instruct_login()
-        return 3
+        telegram.login(cfg)  # interactive phone/code/2FA, then retry provisioning
+        result = telegram.setup(cfg, notebook=args.notebook)
+
     cfg.storage_group_id = result["group_id"]
     config.save(cfg)
     print(json.dumps(result, ensure_ascii=False))
     return 0
 
 
+def _ask(prompt: str) -> str:
+    """Read a single trimmed line from the user (wrapped for testability)."""
+    return input(prompt).strip()
+
+
+def _prompt_credentials(cfg: config.Config) -> bool:
+    """Interactively collect ``api_id``/``api_hash`` onto ``cfg``.
+
+    Returns ``True`` when both were captured, ``False`` if the input was empty or the
+    ``api_id`` was not an integer (the caller then prints full guidance and aborts).
+    """
+    sys.stderr.write(
+        "tg-notes needs your Telegram api_id/api_hash (one-time).\n"
+        "Get them at https://my.telegram.org → 'API development tools'.\n"
+    )
+    raw_id = _ask("api_id: ")
+    api_hash = _ask("api_hash: ")
+    if not raw_id or not api_hash:
+        return False
+    try:
+        cfg.api_id = int(raw_id)
+    except ValueError:
+        return False
+    cfg.api_hash = api_hash
+    return True
+
+
 def _instruct_configure() -> None:
-    """Explain how to supply Telegram credentials, then get logged in."""
+    """Explain how to supply Telegram credentials by hand (used when the prompt is skipped
+    or the entered values were unusable)."""
     path = config.config_path()
     sys.stderr.write(
-        "tg-notes is not configured yet — your Telegram api_id/api_hash are missing.\n"
+        "tg-notes still has no usable Telegram api_id/api_hash.\n"
         "\n"
-        "To get set up:\n"
+        "Set them up manually:\n"
         "  1. Get an api_id and api_hash at https://my.telegram.org\n"
         "     (log in → 'API development tools' → create an app).\n"
         f"  2. Save them to {path}:\n"
@@ -80,14 +120,6 @@ def _instruct_configure() -> None:
         f"     Then keep the secrets private: chmod 600 {path}\n"
         "  3. Run `tg-notes login` to authorize this device (phone → code → 2FA).\n"
         "  4. Run `tg-notes setup` again.\n"
-    )
-
-
-def _instruct_login() -> None:
-    """Explain that credentials exist but the device still needs to log in."""
-    sys.stderr.write(
-        "tg-notes is configured, but this device is not logged in.\n"
-        "Run `tg-notes login` (phone → code → 2FA), then `tg-notes setup` again.\n"
     )
 
 
