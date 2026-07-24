@@ -1,7 +1,7 @@
 {
   "name": "tg-notes",
   "description": "Notes → compile → publish via a private Telegram group, posting under your own account. Bundles the tg-notes capture and compile-&-send skills, which drive the tg-notes CLI (install separately: pipx install tg-notes).",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "author": {
     "name": "korkin25",
     "url": "https://github.com/korkin25"

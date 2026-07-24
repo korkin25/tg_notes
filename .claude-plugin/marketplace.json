@@ -9,7 +9,7 @@
       "name": "tg-notes",
       "source": "./",
       "description": "Notes → compile → publish via a private Telegram group, under your own account.",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "homepage": "https://github.com/korkin25/tg_notes",
       "license": "GPL-3.0-or-later",
       "keywords": ["telegram", "notes", "userbot", "reports", "cli"]
