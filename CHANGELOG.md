@@ -7,6 +7,8 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-07-25
+
 ### Added
 
 - Audio transcription now **auto-fetches the whisper engine on first use**. When a

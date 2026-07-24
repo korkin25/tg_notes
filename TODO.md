@@ -6,17 +6,16 @@ live in `docs/`; stages, current status, and checklists are tracked here. Done t
 
 ## Current state / next action
 
-- **Whisper engine auto-fetch (done, pending `0.1.2`):** audio transcription now
-  auto-installs `faster-whisper` on first use when no engine is present
+- **Release `0.1.2` cut** (2026-07-25): whisper engine auto-fetch on first use
   (`transcribe.ensure_engine`, best-effort, once per process, `pipx inject` vs `pip install`
-  by context; disable with `transcriber_autoinstall = false`). In `CHANGELOG.md` under
-  `## [Unreleased]`. The version is **not** bumped — the maintainer cuts `0.1.2` and
-  publishes separately after sandbox testing.
-- **Release `0.1.1` cut** (2026-07-25): version bumped in `tg_notes/__init__.py`, the
-  `## [Unreleased]` block rolled into `## [0.1.1]` in `CHANGELOG.md`. The **media feature is
-  complete** and **TGN-1..21 are all done** (in `CHANGELOG.md`). The maintainer tags `v0.1.1`
-  to trigger the Trusted-Publishing release workflow. Only optional **TGN-15**
-  (community-marketplace submission, a user web action) remains open.
+  by context; disable with `transcriber_autoinstall = false`) + the `scripts/sandbox.py`
+  testing helper rolled from `## [Unreleased]` into `## [0.1.2]`; version bumped in
+  `tg_notes/__init__.py` + the plugin manifests. Maintainer tags `v0.1.2` for the
+  Trusted-Publishing workflow.
+- **Release `0.1.1`** (2026-07-25): **published to PyPI** via the Trusted-Publishing workflow
+  on the `v0.1.1` tag. The **media feature is complete** and **TGN-1..21 are all done** (in
+  `CHANGELOG.md`). Only optional **TGN-15** (community-marketplace submission, a user web
+  action) remains open.
 - Branch: `main` (feature/packaging merged).
 - **Phases 1 (CLI core) and 2 (the Claude Code Skill) are COMPLETE**, in `CHANGELOG.md`,
   each verified end-to-end on @korkin25. Commands: `setup/login/whoami/note add/notes
