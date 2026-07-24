@@ -9,6 +9,19 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
+- Media notes — Phase 1 (TGN-19): `tg-notes note add --file <path> [--caption <text>]`
+  uploads a photo, video, audio, or document into the notebook topic as **native Telegram
+  media** (Telethon auto-detects the kind), creating the topic on demand. The `--caption`
+  (plus any repeatable `--hashtag`) becomes the message caption — the note's searchable
+  text; a missing file is rejected with a clear error before any network call. New
+  `telegram.note_add_file` returns `{notebook, topic_id, message_id, date, media_type,
+  caption}` (`media_type` ∈ `photo`/`voice`/`audio`/`video`/`gif`/`document`). `notes_list`
+  is now additive: every note dict carries a `media` key (the type, or `null` for text) and
+  for a media note `text` is its caption, so text and media notes compile through the same
+  path. `note add`'s `--text-file` is now optional (use it or `--file`). Fully-mocked tests
+  in `tests/test_media.py`; a gated live round-trip in `tests/test_live_media.py` (skipped
+  unless `TG_NOTES_LIVE=1`). Captions are passed explicitly for now — Phase 2 will auto-fill
+  an audio note's caption from its transcription.
 - On Linux with the keyring backend, the CLI re-execs through a named launcher
   (`<venv>/libexec/tg-notes`, a copy of the interpreter with the venv's site-packages
   re-added via `site.addsitedir` under `-S`) so the vault confirmation prompt

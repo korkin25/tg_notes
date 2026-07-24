@@ -85,6 +85,11 @@ tg-notes setup [--notebook <name>]
 tg-notes note add --notebook daily --text-file note.txt --hashtag infra
 echo "quick note" | tg-notes note add --text-file -
 
+# Or attach a media file (photo/video/audio/document) as the note — stored as native
+# Telegram media in the topic, kind auto-detected. --caption is the searchable text (any
+# --hashtag is appended to it); Phase 2 will auto-fill it from audio transcription.
+tg-notes note add --notebook daily --file ~/clips/demo.mp4 --caption "walkthrough" --hashtag demo
+
 # List the raw notes of a notebook (oldest first) as JSON, optionally bounded by --since
 # (today | HH:MM | YYYY-MM-DD | ISO datetime; local when no offset). Feeds compilation.
 tg-notes notes list --notebook daily --since today

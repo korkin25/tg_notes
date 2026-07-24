@@ -34,6 +34,12 @@ A private **forum supergroup** (Topics enabled) is the store:
 - The timestamp is the Telegram message date — nothing is embedded.
 - Optional `#hashtags` for filtering and search.
 - The note is filed into the chosen notebook's topic.
+- A note may instead be a **media message** (photo, video, audio, or document): the file
+  is stored as native Telegram media and the message **caption** carries the note's text
+  (and, later, the audio transcript). `note add --file <path> [--caption <text>]` uploads
+  it; `notes list` reports a coarse `media` type per note (`photo` / `voice` / `audio` /
+  `video` / `gif` / `document`, or `null` for a text note) and returns the caption as
+  `text`, so text and media notes compile through the same path.
 
 ### Contact message schema
 
@@ -53,7 +59,7 @@ Editing a contact means editing its message — which is also possible from the 
 ## Data flow
 
 - **Capture:** an agent composes a note → `tg-notes note add --notebook <nb>` posts it
-  into the notebook topic.
+  into the notebook topic (text via `--text-file`, or a media file via `--file`).
 - **Compile & publish:** `tg-notes notes list --notebook <nb> --since <t>` returns the
   raw notes → the agent rewrites them per the contact's `style` → `tg-notes send
   --contact <key>` posts the result into the contact's chat/topic.
