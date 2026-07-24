@@ -27,9 +27,42 @@ New requests and ideas land here first, then become tasks in [TODO.md](TODO.md).
     marketplace (a user web action; the repo side already passes
     `claude plugin validate . --strict` and installs from `korkin25/tg_notes`).
 
+24. **Fan-out forward with per-recipient AI rewriting.** Deliver one source (a note, a set of
+    notes, or a forwarded message) to **several contacts at once**, each rewritten for that
+    recipient's level via their `style` (business summary for a manager, verbatim-technical for a
+    tech teamlead). Builds on existing pieces: contacts carry a `style`; `send` targets one
+    contact. **Decision (2026-07-25): Hybrid A+B.**
+    - **(A) Skill layer** — extend the `tg-notes-send` skill: pick multiple contacts → rewrite per
+      each `style` → show drafts → confirm → `send` to each. Uses the user's Claude Code auth (the
+      subscription), **no API key, no LLM dependency in the CLI**. The interactive path.
+    - **(B) CLI-native** — a headless rewriter in `tg-notes` for cron/daily-report (no agent),
+      calling the **Anthropic API via an `ant auth login` OAuth profile** (no static key in the
+      repo; billed through the Anthropic API, not a consumer subscription). Optional `anthropic`
+      SDK dependency (an extra, e.g. `tg-notes[ai]`); default model `claude-opus-5` (cheaper
+      `claude-sonnet-5` for routine rewrites). OpenAI was considered and rejected (second provider
+      + static key, off the project's Claude-first ethos).
+
 ## Brainstorm (ideas)
 
-_None yet._
+24. **Fan-out forward with per-recipient AI rewriting.** Take one source (a note, a set of
+    notes, or a forwarded message) and deliver it to **several contacts at once**, each rewritten
+    for that recipient's level — e.g. a business summary for a manager, verbatim-technical for a
+    tech teamlead — driven by each contact's `style`. Builds on existing pieces: contacts already
+    carry a `style`; `send` already targets one contact. Open **architectural decision** (TGN-D):
+    *where the AI runs and which provider*:
+    - **(A) Skill/agent layer (current architecture).** The `tg-notes-send` skill loops over the
+      chosen contacts and rewrites each via the agent's own model — uses the user's existing
+      Claude Code auth, **no API key and no LLM dependency in the CLI**. Best for interactive use;
+      this is the only path that actually leverages a Claude **subscription** (the agent uses
+      whatever Claude Code is signed in with).
+    - **(B) CLI-native rewriter.** `tg-notes` calls an LLM itself so it works **headless**
+      (cron/daily-report, no agent runtime). Needs a provider: **Anthropic (Claude)** via an
+      `ant auth login` OAuth profile (no static key in the repo; the SDK picks it up) is the
+      Claude-first default — note a *consumer* Claude.ai Pro/Max subscription is **not** an API
+      credential for a standalone CLI, so this bills through the Anthropic API — or an **OpenAI
+      key** (adds a second provider dependency). Default model: `claude-opus-5` (cheaper
+      `claude-sonnet-5` for routine rewrites).
+    A hybrid (A for interactive, B for scheduled) is viable. Decide before it becomes a TODO task.
 
 ## Delivered
 
