@@ -24,7 +24,7 @@ dependencies = [
 [project.optional-dependencies]
 mcp = ["mcp>=1.2"]
 keyring = ["keyring>=24"]
-dev = ["pytest>=8", "pytest-mock", "ruff==0.16.0", "bandit", "pip-audit", "build", "mcp>=1.2", "keyring>=24"]
+dev = ["pytest>=8", "pytest-mock", "ruff==0.16.0", "bandit==1.9.4", "pip-audit", "build", "mcp>=1.2", "keyring>=24"]
 
 [project.urls]
 Homepage = "https://github.com/korkin25/tg_notes"
