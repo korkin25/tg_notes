@@ -7,6 +7,8 @@ project funnels through here; no AI logic lives in this layer.
 """
 from __future__ import annotations
 
+from pathlib import Path
+
 import telethon.sync  # noqa: F401  # enables synchronous TelegramClient methods
 from telethon import TelegramClient, utils
 from telethon.errors import MessageNotModifiedError
@@ -181,12 +183,67 @@ def note_add(
         client.disconnect()
 
 
+def note_add_file(
+    cfg: Config,
+    notebook: str,
+    file_path: str,
+    caption: str | None = None,
+    hashtags: list[str] | None = None,
+) -> dict:
+    """Upload a media file (photo/video/audio/document) as a note (media Phase 1).
+
+    Posts ``file_path`` into the notebook topic (created on demand) as native Telegram
+    media, letting Telethon auto-detect the kind. The ``caption`` — plus any ``hashtags``
+    appended the same way :func:`note_add` composes them — becomes the message caption, i.e.
+    the searchable text of the note (Phase 2 will auto-fill it from audio transcription).
+
+    Returns ``{"notebook", "topic_id", "message_id", "date", "media_type", "caption"}``,
+    matching :func:`note_add`'s keys where they overlap. ``media_type`` is one of ``photo`` /
+    ``voice`` / ``audio`` / ``video`` / ``gif`` / ``document``.
+
+    Raises:
+        FileNotFoundError: if ``file_path`` does not exist.
+        ValueError: if ``file_path`` is not a regular file.
+        NotSetUpError: if no storage group is configured or it no longer resolves.
+        NotConfiguredError / NotAuthorizedError: as in :func:`connect_authorized`.
+    """
+    path = Path(file_path)
+    if not path.exists():
+        raise FileNotFoundError(f"no such file: {file_path}")
+    if not path.is_file():
+        raise ValueError(f"not a regular file: {file_path}")
+    if not cfg.storage_group_id:
+        raise NotSetUpError(
+            "no storage group configured — run `tg-notes setup` first"
+        )
+    body = _compose_note(caption or "", hashtags)
+
+    client = connect_authorized(cfg)
+    try:
+        entity = _resolve_store(client, cfg)
+        topic_id = _ensure_topics(client, entity, [notebook])[notebook]
+        message = client.send_file(entity, str(path), caption=body, reply_to=topic_id)
+        return {
+            "notebook": notebook,
+            "topic_id": topic_id,
+            "message_id": message.id,
+            "date": _message_date_iso(message),
+            "media_type": _media_type(message) or "document",
+            "caption": body,
+        }
+    finally:
+        client.disconnect()
+
+
 def notes_list(cfg: Config, notebook: str, since: object | None = None) -> list[dict]:
     """Return the raw notes of a notebook topic, oldest first (TGN-5).
 
-    Feeds compilation: each note is ``{"message_id", "date", "text"}``. Service/empty
-    messages (e.g. the topic opener) are skipped. ``since`` is an optional lower bound on
-    the message date (a timezone-aware ``datetime``). An unknown notebook yields ``[]``.
+    Feeds compilation: each note is ``{"message_id", "date", "text", "media"}``. ``media``
+    is the coarse media type (``photo`` / ``voice`` / ``audio`` / ``video`` / ``gif`` /
+    ``document``) for a media note, or ``None`` for a plain-text note; for a media note
+    ``text`` carries its caption (the searchable text). Service/empty messages (e.g. the
+    topic opener — no text and no media) are skipped. ``since`` is an optional lower bound
+    on the message date (a timezone-aware ``datetime``). An unknown notebook yields ``[]``.
 
     Raises:
         NotSetUpError: if no storage group is configured or it no longer resolves.
@@ -206,13 +263,15 @@ def notes_list(cfg: Config, notebook: str, since: object | None = None) -> list[
         for message in client.iter_messages(entity, reply_to=topic_id):
             if since is not None and message.date is not None and message.date < since:
                 continue
-            if not message.text:
+            media = _media_type(message)
+            if not message.text and media is None:
                 continue  # skip the topic-opening service message and any empty ones
             notes.append(
                 {
                     "message_id": message.id,
                     "date": _message_date_iso(message),
-                    "text": message.text,
+                    "text": message.text or "",  # caption for a media note
+                    "media": media,
                 }
             )
         notes.sort(key=lambda note: note["message_id"])  # oldest first
@@ -448,6 +507,30 @@ def _message_date_iso(message: object) -> str | None:
     """ISO-8601 timestamp of a sent message, or ``None`` if it carries no date."""
     date = getattr(message, "date", None)
     return date.isoformat() if date is not None else None
+
+
+def _media_type(message: object) -> str | None:
+    """Classify a message's media as a coarse type, or ``None`` for a plain-text note.
+
+    Ordered to disambiguate Telethon's overlapping properties (a voice note is also an
+    audio document; a video note is a video; every non-photo media is a document):
+    photo, voice, audio, video, gif, else document. Returns ``None`` only when the message
+    carries no recognizable media, so a text note (even one with a link preview) is left
+    as text.
+    """
+    if getattr(message, "photo", None):
+        return "photo"
+    if getattr(message, "voice", None):
+        return "voice"
+    if getattr(message, "audio", None):
+        return "audio"
+    if getattr(message, "video", None) or getattr(message, "video_note", None):
+        return "video"
+    if getattr(message, "gif", None):
+        return "gif"
+    if getattr(message, "document", None):
+        return "document"
+    return None
 
 
 def _resolve_or_create(client: TelegramClient, cfg: Config) -> tuple[object, bool]:

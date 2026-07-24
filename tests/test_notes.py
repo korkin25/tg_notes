@@ -151,7 +151,13 @@ def test_normalize_hashtag(raw: str, expected: str) -> None:
 def _note(mid, text, date):
     import unittest.mock as _m
 
-    return _m.Mock(id=mid, text=text, date=date)
+    # A text note carries no media: pin every media property to None so the mock does not
+    # auto-create a truthy attribute that `notes_list` would misread as media.
+    media = {
+        k: None
+        for k in ("photo", "voice", "audio", "video", "video_note", "gif", "document")
+    }
+    return _m.Mock(id=mid, text=text, date=date, **media)
 
 
 def test_notes_list_raises_when_not_set_up(mocker) -> None:
@@ -176,8 +182,8 @@ def test_notes_list_returns_notes_oldest_first(mocker) -> None:
 
     instance.iter_messages.assert_called_once_with(entity, reply_to=5)
     assert result == [
-        {"message_id": 6, "date": d1.isoformat(), "text": "first"},
-        {"message_id": 11, "date": d2.isoformat(), "text": "second"},
+        {"message_id": 6, "date": d1.isoformat(), "text": "first", "media": None},
+        {"message_id": 11, "date": d2.isoformat(), "text": "second", "media": None},
     ]
     instance.disconnect.assert_called_once_with()
 

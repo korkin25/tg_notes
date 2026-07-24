@@ -228,8 +228,13 @@ def _contact_label(c: dict) -> str:
 
 
 def _note_add(args: argparse.Namespace) -> int:
-    """Append a note to a notebook topic (TGN-4)."""
+    """Append a note to a notebook topic — text, or a media file with --file (TGN-4)."""
     cfg = config.load()
+    if args.file is not None:
+        return _note_add_file(cfg, args)
+    if not args.text_file:
+        sys.stderr.write("provide --text-file <f> (or --file <path> for media)\n")
+        return 2
     try:
         text = _read_text_arg(args.text_file)
     except OSError as exc:
@@ -242,6 +247,37 @@ def _note_add(args: argparse.Namespace) -> int:
     except _STORE_ERRORS as exc:
         return _handle_store_errors(exc)
     except ValueError as exc:
+        sys.stderr.write(f"{exc}\n")
+        return 1
+    print(json.dumps(result, ensure_ascii=False))
+    return 0
+
+
+def _note_add_file(cfg: config.Config, args: argparse.Namespace) -> int:
+    """Upload a media file as a note (media Phase 1).
+
+    Caption comes from ``--caption``; if omitted, ``--text-file`` (when given) is read as
+    the caption, mirroring the text path's text source. Any ``--hashtag`` tokens are
+    appended to the caption.
+    """
+    caption = args.caption
+    if caption is None and args.text_file:
+        try:
+            caption = _read_text_arg(args.text_file)
+        except OSError as exc:
+            sys.stderr.write(f"cannot read caption from {args.text_file}: {exc}\n")
+            return 1
+    try:
+        result = telegram.note_add_file(
+            cfg,
+            notebook=args.notebook,
+            file_path=args.file,
+            caption=caption,
+            hashtags=args.hashtag,
+        )
+    except _STORE_ERRORS as exc:
+        return _handle_store_errors(exc)
+    except (FileNotFoundError, ValueError) as exc:
         sys.stderr.write(f"{exc}\n")
         return 1
     print(json.dumps(result, ensure_ascii=False))
@@ -672,16 +708,31 @@ def build_parser() -> argparse.ArgumentParser:
     # note add (TGN-4)
     p_note = sub.add_parser("note", help="work with notes")
     note_sub = p_note.add_subparsers(dest="subcommand", metavar="<subcommand>", required=True)
-    p_note_add = note_sub.add_parser("add", help="append a note to a notebook")
+    p_note_add = note_sub.add_parser(
+        "add", help="append a note (text, or a media --file) to a notebook"
+    )
     p_note_add.add_argument("--notebook", default="daily", help="target notebook topic")
     p_note_add.add_argument(
-        "--text-file", required=True, help="file with the note text (use - for stdin)"
+        "--text-file",
+        default=None,
+        help="file with the note text (use - for stdin); omit when using --file",
+    )
+    p_note_add.add_argument(
+        "--file",
+        default=None,
+        metavar="PATH",
+        help="upload a media file (photo/video/audio/document) as the note instead of text",
+    )
+    p_note_add.add_argument(
+        "--caption",
+        default=None,
+        help="caption for --file media (the note's searchable text)",
     )
     p_note_add.add_argument(
         "--hashtag",
         action="append",
         metavar="TAG",
-        help="append a #hashtag to the note (repeatable)",
+        help="append a #hashtag to the note/caption (repeatable)",
     )
     p_note_add.set_defaults(func=_note_add)
 
