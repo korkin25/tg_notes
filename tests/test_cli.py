@@ -531,3 +531,54 @@ def test_notebooks_list_command_not_set_up_returns_4(mocker, capsys) -> None:
 
     assert cli.main(["notebooks", "list"]) == 4
     assert "setup" in capsys.readouterr().err
+
+
+# --- secrets (TGN-18) ------------------------------------------------------------
+
+
+def test_secrets_status_command_prints_json(mocker, capsys) -> None:
+    mocker.patch("tg_notes.cli.config.load", return_value=config.Config(api_id=1, api_hash="h"))
+    mocker.patch("tg_notes.cli.secrets.keyring_available", return_value=True)
+    mocker.patch("tg_notes.cli._secret_service_provider", return_value="gnome-keyring-d")
+
+    rc = cli.main(["secrets", "status"])
+
+    assert rc == 0
+    import json as _json
+
+    out = _json.loads(capsys.readouterr().out)
+    assert out["backend"] == "file"
+    assert out["keyring_available"] is True
+    assert out["secret_service_provider"] == "gnome-keyring-d"
+
+
+def test_secrets_migrate_to_keyring(mocker) -> None:
+    cfg = config.Config(api_id=1, api_hash="h")
+    mocker.patch("tg_notes.cli.config.load", return_value=cfg)
+    save = mocker.patch("tg_notes.cli.config.save")
+    mocker.patch("tg_notes.cli.secrets.keyring_available", return_value=True)
+    mig = mocker.patch("tg_notes.cli.secrets.migrate_to_keyring")
+
+    rc = cli.main(["secrets", "migrate", "--to", "keyring"])
+
+    assert rc == 0
+    mig.assert_called_once_with(cfg)
+    save.assert_called_once_with(cfg)
+
+
+def test_secrets_migrate_already_active_is_noop(mocker) -> None:
+    mocker.patch("tg_notes.cli.config.load", return_value=config.Config(secrets_backend="file"))
+    save = mocker.patch("tg_notes.cli.config.save")
+    mig = mocker.patch("tg_notes.cli.secrets.migrate_to_file")
+
+    assert cli.main(["secrets", "migrate", "--to", "file"]) == 0
+    mig.assert_not_called()
+    save.assert_not_called()
+
+
+def test_secrets_migrate_keyring_unavailable_returns_1(mocker, capsys) -> None:
+    mocker.patch("tg_notes.cli.config.load", return_value=config.Config(api_id=1, api_hash="h"))
+    mocker.patch("tg_notes.cli.secrets.keyring_available", return_value=False)
+
+    assert cli.main(["secrets", "migrate", "--to", "keyring"]) == 1
+    assert "keyring" in capsys.readouterr().err

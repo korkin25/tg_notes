@@ -105,6 +105,14 @@ echo "..." | tg-notes send --contact boss --text-file - --dry-run
 # List the storage group's notebook topics as JSON (excludes General/contacts).
 tg-notes notebooks list
 
+# Secrets backend. By default the api_hash + session live in local files (config.toml
+# 600 + *.session). Optionally move them into the OS Secret Service (gnome-keyring /
+# KWallet / KeePassXC — whichever owns org.freedesktop.secrets; the session is stored as
+# a StringSession). `secrets status` shows the active backend and which provider answers.
+pipx install "tg-notes[keyring]"
+tg-notes secrets status
+tg-notes secrets migrate --to keyring     # or: --to file to move back
+
 # Log in on its own (setup calls this for you; useful to re-authorize a new device).
 # Requires api_id/api_hash in local config; writes a chmod-600 session file.
 tg-notes login

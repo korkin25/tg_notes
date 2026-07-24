@@ -22,13 +22,15 @@ live in `docs/`; stages, current status, and checklists are tracked here. Done t
 - CI is green on GitHub (fixed a pip-audit false-positive on the runner's `setuptools`).
 - Logged TGN-18 (pluggable secrets backend — Secret Service/keyring incl. KeePassXC,
   `StringSession` in the vault) as later work; the file backend stays the default.
-- TGN-16 done (Phase 4). TGN-15 repo-side ready (submission is a user web action).
-- TGN-17 done: local stdio MCP server (`tg-notes-mcp`, `mcp` extra) exposing note_add /
-  notes_list / contacts_list / send; verified end-to-end via the server against the real
-  account. Also fixed a `contacts_set` bug (unchanged-content `MessageNotModifiedError`).
-- **NEXT:** TGN-18 (pluggable secrets backend) — the last open item; deferred by earlier
-  agreement, now next in order. Then TGN-15 (community-marketplace submission, user web
-  action) is the only thing left, and it's optional.
+- TGN-16 done (Phase 4). TGN-17 done (MCP server; also fixed a `contacts_set`
+  unchanged-content bug).
+- TGN-18 done: pluggable secrets backend (`tg_notes/secrets.py`) — file (default) +
+  opt-in keyring (Secret Service; session as `StringSession`), `tg-notes secrets
+  status|migrate`. Verified end-to-end on an isolated session copy (file → keyring →
+  `whoami` from the vault → back to file); the real file default was left untouched.
+- **All planned work is DONE.** The only open item is **TGN-15** (submit the plugin to a
+  community marketplace) — a user web action, optional; the repo side already passes
+  `claude plugin validate --strict` and the plugin installs from `korkin25/tg_notes`.
 
 ## Legend
 
@@ -49,7 +51,8 @@ Decision items use `TGN-D<n>`.
 
 ## Current work
 
-_None in progress. Next up: dev-install, then Phase 3 (packaging)._
+_None — all planned tasks (TGN-1..18) are done. Only optional TGN-15 (community-marketplace
+submission, a user web action) remains._
 
 ## Phase 1 — CLI core (`tg-notes`)
 
@@ -71,6 +74,4 @@ Complete — TGN-16 (`AGENTS.md` + per-agent distribution) moved to `CHANGELOG.m
 
 ## Deferred
 
-| ID | Status | Task | Details |
-| --- | --- | --- | --- |
-| TGN-18 | ⬜ | Pluggable secrets backend | Abstract secret storage behind a backend interface: **file** (default — `config.toml` 600 + `*.session`) and an **opt-in Secret Service** backend via `keyring`/`secretstorage`, auto-detected when a provider is present (KeePassXC, gnome-keyring, KWallet; macOS Keychain / Windows Cred Manager). Store the Telethon session as a `StringSession` in the vault (highest-value secret) instead of a file. Must keep unattended runs working (scheduled daily-report): the default path never requires an interactive master-password unlock. Deferred by agreement. |
+_None — TGN-18 (pluggable secrets backend) is done, in `CHANGELOG.md`._

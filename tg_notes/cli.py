@@ -21,7 +21,7 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-from . import __version__, config, telegram
+from . import __version__, config, secrets, telegram
 
 
 def _login(args: argparse.Namespace) -> int:
@@ -292,6 +292,68 @@ def _send(args: argparse.Namespace) -> int:
     return 0
 
 
+def _secret_service_provider() -> str | None:
+    """Best-effort name of the process owning org.freedesktop.secrets (None if unknown)."""
+    import shutil
+    import subprocess  # noqa: S404 — fixed args, no shell, no user input
+
+    busctl = shutil.which("busctl")
+    if not busctl:
+        return None
+    try:
+        out = subprocess.run(  # noqa: S603 — fixed argv, trusted binary
+            [busctl, "--user", "list"], capture_output=True, text=True, timeout=5
+        ).stdout
+    except (OSError, subprocess.SubprocessError):
+        return None
+    for line in out.splitlines():
+        if line.startswith("org.freedesktop.secrets"):
+            parts = line.split()
+            return parts[2] if len(parts) > 2 else None
+    return None
+
+
+def _secrets_status(args: argparse.Namespace) -> int:
+    """Print the active secrets backend and what's available (TGN-18)."""
+    cfg = config.load()
+    backend = secrets.get_backend(cfg)
+    status = {
+        "backend": backend.name,
+        "configured": backend.is_configured(),
+        "has_session": backend.has_session(),
+        "keyring_available": secrets.keyring_available(),
+        "secret_service_provider": _secret_service_provider(),
+    }
+    print(json.dumps(status, ensure_ascii=False))
+    return 0
+
+
+def _secrets_migrate(args: argparse.Namespace) -> int:
+    """Move secrets (api_hash + session) between the file and keyring backends (TGN-18)."""
+    cfg = config.load()
+    current = secrets.get_backend(cfg).name
+    if args.to == current:
+        print(json.dumps({"backend": current, "migrated": False, "note": "already active"}))
+        return 0
+    try:
+        if args.to == "keyring":
+            if not secrets.keyring_available():
+                sys.stderr.write(
+                    "no working keyring/Secret Service found — install `tg-notes[keyring]` "
+                    "and ensure a provider (gnome-keyring / KWallet / KeePassXC) is unlocked\n"
+                )
+                return 1
+            secrets.migrate_to_keyring(cfg)
+        else:
+            secrets.migrate_to_file(cfg)
+    except (ValueError, RuntimeError) as exc:
+        sys.stderr.write(f"migration failed: {exc}\n")
+        return 1
+    config.save(cfg)
+    print(json.dumps({"backend": cfg.secrets_backend or "file", "migrated": True}))
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="tg-notes",
@@ -377,6 +439,18 @@ def build_parser() -> argparse.ArgumentParser:
     p_nb = sub.add_parser("notebooks", help="notebooks")
     nb_sub = p_nb.add_subparsers(dest="subcommand", metavar="<subcommand>", required=True)
     nb_sub.add_parser("list", help="list notebook topics").set_defaults(func=_notebooks_list)
+
+    # secrets (TGN-18)
+    p_secrets = sub.add_parser("secrets", help="secrets backend (file / keyring)")
+    secrets_sub = p_secrets.add_subparsers(dest="subcommand", metavar="<subcommand>", required=True)
+    secrets_sub.add_parser(
+        "status", help="show the active secrets backend and what's available"
+    ).set_defaults(func=_secrets_status)
+    p_sec_mig = secrets_sub.add_parser("migrate", help="move secrets between backends")
+    p_sec_mig.add_argument(
+        "--to", required=True, choices=["file", "keyring"], help="target backend"
+    )
+    p_sec_mig.set_defaults(func=_secrets_migrate)
 
     return parser
 
