@@ -21,7 +21,7 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-from . import __version__, config, secrets, telegram
+from . import __version__, config, secrets, telegram, transcribe
 
 
 def _login(args: argparse.Namespace) -> int:
@@ -267,6 +267,10 @@ def _note_add_file(cfg: config.Config, args: argparse.Namespace) -> int:
         except OSError as exc:
             sys.stderr.write(f"cannot read caption from {args.text_file}: {exc}\n")
             return 1
+    # Audio auto-transcription (media Phase 2): only when there is no caption yet — best-effort,
+    # so a missing/failing engine never aborts the upload (see `_maybe_transcribe`).
+    if caption is None and _should_transcribe(cfg, args):
+        caption = _maybe_transcribe(cfg, args.file)
     try:
         result = telegram.note_add_file(
             cfg,
@@ -282,6 +286,50 @@ def _note_add_file(cfg: config.Config, args: argparse.Namespace) -> int:
         return 1
     print(json.dumps(result, ensure_ascii=False))
     return 0
+
+
+def _should_transcribe(cfg: config.Config, args: argparse.Namespace) -> bool:
+    """Decide whether to transcribe the ``--file`` into the caption.
+
+    ``--no-transcribe`` (``args.transcribe is False``) always skips; a non-audio file is
+    never transcribed. Explicit ``--transcribe`` (``True``) forces it for an audio file;
+    otherwise (auto — the default, ``None``) it engages only when a local engine is
+    available, so a box with no whisper installed uploads silently.
+    """
+    if args.transcribe is False:
+        return False
+    if not transcribe.is_audio(args.file):
+        return False
+    if args.transcribe is True:
+        return True
+    return transcribe.available_transcriber(cfg) is not None
+
+
+def _maybe_transcribe(cfg: config.Config, file_path: str) -> str | None:
+    """Transcribe ``file_path`` best-effort, returning the transcript or ``None``.
+
+    Never raises: on no engine it prints a one-line hint on how to enable one; on a run
+    failure it prints a warning. In both cases it returns ``None`` so the caller still
+    uploads the file (best-effort). Logs the chosen backend to stderr when attempting.
+    """
+    backend = transcribe.available_transcriber(cfg)
+    if backend is not None:
+        sys.stderr.write(f"note: transcribing audio via {backend}…\n")
+    try:
+        text = transcribe.transcribe(file_path, cfg)
+    except transcribe.TranscriptionUnavailable:
+        sys.stderr.write(
+            "note: no local transcriber — uploading without a transcript. Enable one with "
+            "`pipx inject tg-notes faster-whisper` (or `pip install faster-whisper`), or set "
+            "whisper_cmd in config to a whisper.cpp/openai-whisper binary.\n"
+        )
+        return None
+    except transcribe.TranscriptionError as exc:
+        sys.stderr.write(
+            f"warning: transcription failed ({exc}) — uploading without a transcript.\n"
+        )
+        return None
+    return text or None
 
 
 def _parse_since(value: str) -> datetime:
@@ -727,6 +775,13 @@ def build_parser() -> argparse.ArgumentParser:
         "--caption",
         default=None,
         help="caption for --file media (the note's searchable text)",
+    )
+    p_note_add.add_argument(
+        "--transcribe",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="transcribe an audio --file into the caption (default: auto — when the file is "
+        "audio, no --caption is given, and a local whisper engine is available)",
     )
     p_note_add.add_argument(
         "--hashtag",

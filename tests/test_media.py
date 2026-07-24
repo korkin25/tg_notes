@@ -346,3 +346,158 @@ def test_cli_note_add_requires_file_or_text(mocker, capsys) -> None:
 
     assert rc == 2
     assert "file" in capsys.readouterr().err
+
+
+# --- CLI: audio `note add --file` auto-transcription (media Phase 2) --------------
+
+
+def _cfg_and_load(mocker) -> Config:
+    cfg = Config(api_id=1, api_hash="h", storage_group_id=-100)
+    mocker.patch("tg_notes.cli.config.load", return_value=cfg)
+    return cfg
+
+
+def test_cli_note_add_audio_auto_transcribes_to_caption(mocker, tmp_path) -> None:
+    f = tmp_path / "voice.ogg"
+    f.write_bytes(b"x")
+    cfg = _cfg_and_load(mocker)
+    mocker.patch(
+        "tg_notes.cli.transcribe.available_transcriber", return_value="faster-whisper"
+    )
+    tr = mocker.patch("tg_notes.cli.transcribe.transcribe", return_value="hello world")
+    add_file = mocker.patch(
+        "tg_notes.cli.telegram.note_add_file", return_value={"media_type": "voice"}
+    )
+
+    rc = cli.main(["note", "add", "--file", str(f)])
+
+    assert rc == 0
+    tr.assert_called_once_with(str(f), cfg)
+    add_file.assert_called_once_with(
+        cfg, notebook="daily", file_path=str(f), caption="hello world", hashtags=None
+    )
+
+
+def test_cli_note_add_audio_auto_skips_when_no_engine(mocker, tmp_path) -> None:
+    f = tmp_path / "voice.ogg"
+    f.write_bytes(b"x")
+    cfg = _cfg_and_load(mocker)
+    mocker.patch("tg_notes.cli.transcribe.available_transcriber", return_value=None)
+    tr = mocker.patch("tg_notes.cli.transcribe.transcribe")
+    add_file = mocker.patch(
+        "tg_notes.cli.telegram.note_add_file", return_value={"media_type": "voice"}
+    )
+
+    rc = cli.main(["note", "add", "--file", str(f)])
+
+    assert rc == 0
+    tr.assert_not_called()  # auto mode never attempts when no engine is available
+    add_file.assert_called_once_with(
+        cfg, notebook="daily", file_path=str(f), caption=None, hashtags=None
+    )
+
+
+def test_cli_note_add_no_transcribe_skips(mocker, tmp_path) -> None:
+    f = tmp_path / "voice.ogg"
+    f.write_bytes(b"x")
+    cfg = _cfg_and_load(mocker)
+    avail = mocker.patch("tg_notes.cli.transcribe.available_transcriber")
+    tr = mocker.patch("tg_notes.cli.transcribe.transcribe")
+    add_file = mocker.patch(
+        "tg_notes.cli.telegram.note_add_file", return_value={"media_type": "voice"}
+    )
+
+    rc = cli.main(["note", "add", "--file", str(f), "--no-transcribe"])
+
+    assert rc == 0
+    tr.assert_not_called()
+    avail.assert_not_called()  # --no-transcribe short-circuits before any detection
+    add_file.assert_called_once_with(
+        cfg, notebook="daily", file_path=str(f), caption=None, hashtags=None
+    )
+
+
+def test_cli_note_add_caption_given_skips_transcription(mocker, tmp_path) -> None:
+    f = tmp_path / "voice.ogg"
+    f.write_bytes(b"x")
+    cfg = _cfg_and_load(mocker)
+    tr = mocker.patch("tg_notes.cli.transcribe.transcribe")
+    add_file = mocker.patch(
+        "tg_notes.cli.telegram.note_add_file", return_value={"media_type": "voice"}
+    )
+
+    rc = cli.main(["note", "add", "--file", str(f), "--caption", "manual"])
+
+    assert rc == 0
+    tr.assert_not_called()
+    add_file.assert_called_once_with(
+        cfg, notebook="daily", file_path=str(f), caption="manual", hashtags=None
+    )
+
+
+def test_cli_note_add_non_audio_file_not_transcribed(mocker, tmp_path) -> None:
+    f = tmp_path / "pic.png"
+    f.write_bytes(b"x")
+    cfg = _cfg_and_load(mocker)
+    tr = mocker.patch("tg_notes.cli.transcribe.transcribe")
+    add_file = mocker.patch(
+        "tg_notes.cli.telegram.note_add_file", return_value={"media_type": "photo"}
+    )
+
+    rc = cli.main(["note", "add", "--file", str(f)])
+
+    assert rc == 0
+    tr.assert_not_called()
+    add_file.assert_called_once_with(
+        cfg, notebook="daily", file_path=str(f), caption=None, hashtags=None
+    )
+
+
+def test_cli_note_add_unavailable_still_uploads_with_hint(mocker, tmp_path, capsys) -> None:
+    f = tmp_path / "voice.ogg"
+    f.write_bytes(b"x")
+    cfg = _cfg_and_load(mocker)
+    # explicit --transcribe bypasses the availability gate, so transcribe() runs and raises.
+    mocker.patch("tg_notes.cli.transcribe.available_transcriber", return_value=None)
+    mocker.patch(
+        "tg_notes.cli.transcribe.transcribe",
+        side_effect=cli.transcribe.TranscriptionUnavailable("no engine"),
+    )
+    add_file = mocker.patch(
+        "tg_notes.cli.telegram.note_add_file", return_value={"media_type": "voice"}
+    )
+
+    rc = cli.main(["note", "add", "--file", str(f), "--transcribe"])
+
+    assert rc == 0  # best-effort: the upload still succeeds
+    add_file.assert_called_once_with(
+        cfg, notebook="daily", file_path=str(f), caption=None, hashtags=None
+    )
+    assert "faster-whisper" in capsys.readouterr().err  # hint on how to enable
+
+
+def test_cli_note_add_transcription_error_still_uploads_with_warning(
+    mocker, tmp_path, capsys
+) -> None:
+    f = tmp_path / "voice.ogg"
+    f.write_bytes(b"x")
+    cfg = _cfg_and_load(mocker)
+    mocker.patch(
+        "tg_notes.cli.transcribe.available_transcriber", return_value="faster-whisper"
+    )
+    mocker.patch(
+        "tg_notes.cli.transcribe.transcribe",
+        side_effect=cli.transcribe.TranscriptionError("bad audio"),
+    )
+    add_file = mocker.patch(
+        "tg_notes.cli.telegram.note_add_file", return_value={"media_type": "voice"}
+    )
+
+    rc = cli.main(["note", "add", "--file", str(f)])
+
+    assert rc == 0  # best-effort: transcription failure must not lose the upload
+    add_file.assert_called_once_with(
+        cfg, notebook="daily", file_path=str(f), caption=None, hashtags=None
+    )
+    err = capsys.readouterr().err
+    assert "bad audio" in err

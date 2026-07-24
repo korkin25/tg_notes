@@ -36,6 +36,12 @@ class Config:
     storage_group_id: int | None = None
     #: Where secrets live: "file" (default — config.toml + *.session) or "keyring".
     secrets_backend: str | None = None
+    #: Audio transcription (media Phase 2) — not secret. ``transcriber`` selects the backend
+    #: ("auto" / None to auto-detect); ``whisper_cmd`` points at a whisper CLI to prefer;
+    #: ``whisper_model`` names the model (e.g. "base"/"small") passed to the engine.
+    transcriber: str | None = None
+    whisper_cmd: str | None = None
+    whisper_model: str | None = None
 
     @property
     def session(self) -> str:
@@ -56,6 +62,9 @@ def load() -> Config:
         session_path=data.get("session_path"),
         storage_group_id=data.get("storage_group_id"),
         secrets_backend=data.get("secrets_backend"),
+        transcriber=data.get("transcriber"),
+        whisper_cmd=data.get("whisper_cmd"),
+        whisper_model=data.get("whisper_model"),
     )
 
 
@@ -76,6 +85,9 @@ def _dump_toml(cfg: Config) -> str:
         "session_path": cfg.session_path,
         "storage_group_id": cfg.storage_group_id,
         "secrets_backend": cfg.secrets_backend,
+        "transcriber": cfg.transcriber,
+        "whisper_cmd": cfg.whisper_cmd,
+        "whisper_model": cfg.whisper_model,
     }
     for key, value in fields.items():
         if value is None:

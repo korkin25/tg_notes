@@ -32,12 +32,15 @@ live in `docs/`; stages, current status, and checklists are tracked here. Done t
   re-execs through `<venv>/libexec/tg-notes` (interpreter copy; venv packages via
   `site.addsitedir` under `-S`) so the KeePassXC/Secret Service prompt shows `tg-notes`,
   not `python3.12`. Best-effort (read-only venv → skipped); fully mocked unit tests.
-- **Media notes — Phase 1 DONE (TGN-19)**, in `CHANGELOG.md`: `tg-notes note add --file
-  <path> [--caption <text>]` uploads photo/video/audio/document as native Telegram media;
-  `notes_list` now reports each note's `media` type + caption. Next: **TGN-20** (Phase 2 —
-  auto-fill an audio note's caption from transcription) and **TGN-21** (Phase 3 — surface
-  media in the MCP server + skills, and the D-Bus/DBUS env fix). See the Media notes phase
-  below.
+- **Media notes — Phases 1 & 2 DONE (TGN-19, TGN-20)**, in `CHANGELOG.md`. Phase 1:
+  `tg-notes note add --file <path> [--caption <text>]` uploads photo/video/audio/document as
+  native Telegram media; `notes_list` reports each note's `media` type + caption. Phase 2:
+  audio note files **auto-transcribe to the caption** via a pluggable local transcriber
+  (`tg_notes/transcribe.py`: configured whisper CLI → whisper CLI on PATH → `faster-whisper`),
+  best-effort (a missing/failing engine still uploads the file), with `--transcribe`/
+  `--no-transcribe` and `transcriber`/`whisper_cmd`/`whisper_model` config keys. Next:
+  **TGN-21** (Phase 3 — surface media in the MCP server + skills, mirror the audio
+  auto-transcription there, and the D-Bus/DBUS env fix). See the Media notes phase below.
 - Otherwise all earlier work is DONE. The only other open item is **TGN-15** (submit the
   plugin to a community marketplace) — a user web action, optional; the repo side already
   passes `claude plugin validate --strict` and the plugin installs from `korkin25/tg_notes`.
@@ -61,9 +64,9 @@ Decision items use `TGN-D<n>`.
 
 ## Current work
 
-_Media notes — Phase 1 (TGN-19) is done and in `CHANGELOG.md`. Open: TGN-20 / TGN-21
-(media Phases 2–3, below) and optional TGN-15 (community-marketplace submission, a user
-web action)._
+_Media notes — Phases 1 & 2 (TGN-19, TGN-20) are done and in `CHANGELOG.md`. Open: TGN-21
+(media Phase 3, below) and optional TGN-15 (community-marketplace submission, a user web
+action)._
 
 ## Media notes
 
@@ -73,8 +76,8 @@ Upload arbitrary media (photo/video/audio/document) as notes, read them back, an
 | ID | Status | Task | Details |
 | --- | --- | --- | --- |
 | TGN-19 | ✅ | Phase 1 — upload media notes | Done → `CHANGELOG.md`. `note add --file <path> [--caption <text>]`; `note_add_file` posts native Telegram media (kind auto-detected), `notes_list` reports `media` type + caption. Captions passed explicitly. |
-| TGN-20 | ⬜ | Phase 2 — audio transcription | Auto-fill an audio/voice note's caption from its transcription (speech-to-text), so a dictated voice note becomes searchable text without a manual `--caption`. |
-| TGN-21 | ⬜ | Phase 3 — media surfaces + env fix | Expose media upload in the MCP server (`mcp_server.py`) and the `tg-notes` capture skill; mirror the `notes_list` `media`/caption shape in those surfaces. Includes the D-Bus/DBUS environment fix for media I/O. |
+| TGN-20 | ✅ | Phase 2 — audio transcription | Done → `CHANGELOG.md`. Audio note files auto-transcribe to the caption via a pluggable local transcriber (`tg_notes/transcribe.py`); best-effort (missing/failing engine still uploads). `--transcribe`/`--no-transcribe`; `transcriber`/`whisper_cmd`/`whisper_model` config; `tg-notes[transcribe]` extra. |
+| TGN-21 | ⬜ | Phase 3 — media surfaces + env fix | Expose media upload in the MCP server (`mcp_server.py`) and the `tg-notes` capture skill; mirror the `notes_list` `media`/caption shape **and the audio auto-transcription** (a `note_add_file` MCP tool + skill path that transcribes audio to the caption best-effort, same as the CLI). Includes the D-Bus/DBUS environment fix for media I/O. |
 
 ## Phase 1 — CLI core (`tg-notes`)
 

@@ -9,6 +9,26 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
+- Media notes — Phase 2 (TGN-20): audio note files **auto-transcribe to the caption**. When
+  `note add --file <path>` is an audio file (`.ogg`/`.oga`/`.opus`/`.mp3`/`.m4a`/`.wav`/
+  `.flac`/`.aac`/`.webm`) and no `--caption` is given, tg-notes transcribes it **locally**
+  and uses the transcript as the caption — so a dictated voice note becomes searchable text
+  with no manual step. New `tg_notes/transcribe.py` provides a **pluggable** local
+  transcriber detected on demand in order: a configured whisper CLI (`whisper_cmd`), a
+  whisper CLI on `PATH` (`whisper-cli` / `whisper` / `main` — whisper.cpp or openai-whisper),
+  then the `faster-whisper` package (imported lazily). It is **best-effort**: if no engine is
+  installed (`TranscriptionUnavailable`) or transcription fails (`TranscriptionError`) the
+  file **still uploads** without a caption and a one-line stderr hint/warning is printed —
+  transcription never aborts the upload. `telegram.py` stays pure Telegram I/O; the CLI
+  handler does the transcription and passes the text into the existing `note_add_file` as the
+  caption. New `--transcribe`/`--no-transcribe` flag on `note add` (default = auto: only for
+  an audio file with no `--caption` and an available engine); a non-audio file, an explicit
+  `--caption`, or `--no-transcribe` skips it. New non-secret config keys `transcriber`,
+  `whisper_cmd`, `whisper_model`, and a `tg-notes[transcribe]` extra
+  (`pipx inject tg-notes faster-whisper`). The whisper engines need `ffmpeg` to decode audio.
+  Fully-mocked tests in `tests/test_transcribe.py` (backends, detection order, CLI arg
+  templates, error paths) and `tests/test_media.py` (CLI wiring); a gated live test in
+  `tests/test_live_transcribe.py` (skipped unless `TG_NOTES_LIVE=1` and an engine is present).
 - Media notes — Phase 1 (TGN-19): `tg-notes note add --file <path> [--caption <text>]`
   uploads a photo, video, audio, or document into the notebook topic as **native Telegram
   media** (Telethon auto-detects the kind), creating the topic on demand. The `--caption`
@@ -115,6 +135,12 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Fixed
 
+- The gated live media test's photo fixture used an invalid 1x1 PNG that Telegram's
+  server-side image pipeline rejected with `ImageProcessFailedError`, so
+  `TG_NOTES_LIVE=1 pytest tests/test_live_media.py` failed on the photo round-trip. It now
+  generates a valid 160x160 8-bit truecolor PNG in-process (signature + IHDR + a
+  zlib-compressed IDAT with per-row filter bytes + IEND, all via `struct`/`zlib`, no PIL),
+  which round-trips cleanly.
 - The keyring backend now reuses a single `secretstorage` D-Bus connection per process
   (`_ss_collection` lazily opens it once and caches it) instead of opening a new one on every
   vault read. A single command reads the vault several times (`api_hash`, session,
