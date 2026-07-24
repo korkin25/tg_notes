@@ -91,3 +91,11 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   `tests/test_notebooks.py`. Completes **Phase 1 (CLI core)** — all deterministic Telegram
   commands are implemented and verified end-to-end. Removed the leftover `_todo` stub
   handler now that no command is a stub.
+- Capture skill (TGN-9): `skills/tg-notes/SKILL.md` — a portable Agent Skill (standard
+  `name`/`description` frontmatter) that captures a work note into the Telegram-backed
+  store by shelling out to `tg-notes note add`. Two modes: verbatim (user dictates) and
+  session summary (composed from real facts — git commits since 00:00, changed files,
+  tickets — never invented), 2–6 concise bullets in the user's language, default `daily`
+  notebook, optional hashtags. Capture only — it never sends. Verified end-to-end against
+  the real account (both modes filed and read back). Succeeds the retired local `report`
+  skill, now Telegram-native.

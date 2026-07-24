@@ -44,6 +44,10 @@ to compile, and publishes the result. See [docs/architecture.md](docs/architectu
 The CLI will ship on PyPI; the Claude Code Skill will ship as a plugin installable from a
 git marketplace. More usage lands here as commands are implemented.
 
+The capture skill lives at [`skills/tg-notes/SKILL.md`](skills/tg-notes/SKILL.md): from an
+agent session it composes a note (verbatim, or a summary of real session facts) and files
+it with `tg-notes note add`. It drives the CLI, so `tg-notes` must be on `PATH`.
+
 Available so far:
 
 ```bash
