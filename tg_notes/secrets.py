@@ -22,10 +22,15 @@ from contextlib import contextmanager
 
 from .config import Config
 
-#: Service name under which secrets are stored in the keyring.
+#: Default service name under which secrets are stored in the keyring.
 KEYRING_SERVICE = "tg-notes"
 _KEY_API_HASH = "api_hash"
 _KEY_SESSION = "session"
+
+
+def _keyring_service() -> str:
+    """The keyring service namespace — overridable via TG_NOTES_KEYRING_SERVICE (for sandboxes)."""
+    return os.environ.get("TG_NOTES_KEYRING_SERVICE", KEYRING_SERVICE)
 
 
 class FileBackend:
@@ -84,18 +89,20 @@ class KeyringBackend:
 
     def api_hash(self) -> str | None:
         # config value wins during migration; otherwise from the vault
-        return self.cfg.api_hash or self._keyring().get_password(KEYRING_SERVICE, _KEY_API_HASH)
+        return self.cfg.api_hash or self._keyring().get_password(
+            _keyring_service(), _KEY_API_HASH
+        )
 
     def is_configured(self) -> bool:
         return bool(self.cfg.api_id and self.api_hash())
 
     def has_session(self) -> bool:
-        return bool(self._keyring().get_password(KEYRING_SERVICE, _KEY_SESSION))
+        return bool(self._keyring().get_password(_keyring_service(), _KEY_SESSION))
 
     def session_arg(self):
         from telethon.sessions import StringSession
 
-        saved = self._keyring().get_password(KEYRING_SERVICE, _KEY_SESSION)
+        saved = self._keyring().get_password(_keyring_service(), _KEY_SESSION)
         return StringSession(saved) if saved else StringSession()
 
     @contextmanager
@@ -106,7 +113,7 @@ class KeyringBackend:
         from telethon.sessions import StringSession
 
         self._keyring().set_password(
-            KEYRING_SERVICE, _KEY_SESSION, StringSession.save(client.session)
+            _keyring_service(), _KEY_SESSION, StringSession.save(client.session)
         )
 
 
@@ -131,9 +138,10 @@ def keyring_probe() -> tuple[bool, str | None]:
     except ImportError:
         return False, "not-installed"
     try:
-        keyring.set_password(KEYRING_SERVICE, "_probe", "1")
-        ok = keyring.get_password(KEYRING_SERVICE, "_probe") == "1"
-        keyring.delete_password(KEYRING_SERVICE, "_probe")
+        service = _keyring_service()
+        keyring.set_password(service, "_probe", "1")
+        ok = keyring.get_password(service, "_probe") == "1"
+        keyring.delete_password(service, "_probe")
         return (True, None) if ok else (False, "error:readback-mismatch")
     except Exception as exc:  # noqa: BLE001 — classify any backend failure
         msg = str(exc).lower()
@@ -194,9 +202,10 @@ def migrate_to_keyring(cfg: Config) -> None:
     if not session_str:  # empty = no authorized session; never overwrite the vault with it
         raise RuntimeError("no authorized session to migrate — run `tg-notes login` first")
 
-    keyring.set_password(KEYRING_SERVICE, _KEY_API_HASH, cfg.api_hash)
-    keyring.set_password(KEYRING_SERVICE, _KEY_SESSION, session_str)
-    if keyring.get_password(KEYRING_SERVICE, _KEY_SESSION) != session_str:
+    service = _keyring_service()
+    keyring.set_password(service, _KEY_API_HASH, cfg.api_hash)
+    keyring.set_password(service, _KEY_SESSION, session_str)
+    if keyring.get_password(service, _KEY_SESSION) != session_str:
         raise RuntimeError("keyring did not store the session — aborting migration")
 
     dotfile = _dotsession(cfg.session)
@@ -210,16 +219,17 @@ def migrate_to_file(cfg: Config) -> None:
     """Move ``api_hash`` + the session from the keyring back to config + a session file."""
     import keyring
 
-    api_hash = keyring.get_password(KEYRING_SERVICE, _KEY_API_HASH)
-    session_str = keyring.get_password(KEYRING_SERVICE, _KEY_SESSION)
+    service = _keyring_service()
+    api_hash = keyring.get_password(service, _KEY_API_HASH)
+    session_str = keyring.get_password(service, _KEY_SESSION)
     if not session_str:
         raise RuntimeError("no session in the keyring to migrate")
 
     from keyring.errors import PasswordDeleteError
 
     _write_file_session(cfg, session_str)
-    keyring.delete_password(KEYRING_SERVICE, _KEY_SESSION)
+    keyring.delete_password(service, _KEY_SESSION)
     with contextlib.suppress(PasswordDeleteError):  # absent api_hash key is fine
-        keyring.delete_password(KEYRING_SERVICE, _KEY_API_HASH)
+        keyring.delete_password(service, _KEY_API_HASH)
     cfg.secrets_backend = "file"
     cfg.api_hash = api_hash

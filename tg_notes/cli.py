@@ -490,6 +490,8 @@ def _secrets_state(cfg: config.Config) -> dict:
         "probe_kind": probe_kind,
         "provider": _secret_service_provider(),
         "stores": _available_secret_stores(),
+        "config_dir": str(config.config_dir()),
+        "keyring_service": secrets._keyring_service(),
     }
 
 
@@ -572,6 +574,8 @@ def _secrets_doctor(args: argparse.Namespace) -> int:
     probe = "OK" if state["probe_ok"] else f"FAILED ({state['probe_kind']})"
     print("tg-notes secrets — diagnosis")
     print(f"  backend         : {state['backend']}")
+    print(f"  config dir      : {state['config_dir']}")
+    print(f"  keyring service : {state['keyring_service']}")
     print(f"  configured      : {state['configured']}")
     print(f"  session present : {state['has_session']}")
     print(f"  Secret Service  : {state['provider'] or '(nobody serves org.freedesktop.secrets)'}")
@@ -597,6 +601,8 @@ def _secrets_status(args: argparse.Namespace) -> int:
         "keyring_available": secrets.keyring_available(),
         "secret_service_provider": _secret_service_provider(),
         "available_stores": _available_secret_stores(),
+        "config_dir": str(config.config_dir()),
+        "keyring_service": secrets._keyring_service(),
     }
     print(json.dumps(status, ensure_ascii=False))
     return 0

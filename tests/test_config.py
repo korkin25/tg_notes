@@ -65,3 +65,22 @@ def test_is_configured_true_and_false() -> None:
     assert config.Config(api_id=1).is_configured() is False
     assert config.Config(api_hash="hash").is_configured() is False
     assert config.Config().is_configured() is False
+
+
+def test_config_dir_respects_tg_notes_config_dir(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("TG_NOTES_CONFIG_DIR", str(tmp_path))
+
+    # The override is the exact config dir (config.toml + session live directly in it).
+    assert config.config_dir() == tmp_path
+    assert config.config_path() == tmp_path / "config.toml"
+    assert config.default_session_path() == tmp_path / "tg-notes.session"
+
+    # A save→load round-trip works in the overridden dir.
+    config.save(config.Config(api_id=7, api_hash="cafef00d"))
+    loaded = config.load()
+    assert loaded.api_id == 7
+    assert loaded.api_hash == "cafef00d"
+
+    # TG_NOTES_CONFIG_DIR wins over XDG_CONFIG_HOME when both are set.
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "xdg"))
+    assert config.config_dir() == tmp_path

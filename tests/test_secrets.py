@@ -61,6 +61,29 @@ def test_keyring_backend_persist_login_stores_stringsession(mocker) -> None:
     fake.set_password.assert_called_once_with("tg-notes", "session", "SESSIONSTR")
 
 
+# --- keyring service namespace (sandbox override) --------------------------------
+
+
+def test_keyring_service_default(monkeypatch) -> None:
+    monkeypatch.delenv("TG_NOTES_KEYRING_SERVICE", raising=False)
+    assert secrets._keyring_service() == "tg-notes"
+
+
+def test_keyring_service_env_override(monkeypatch) -> None:
+    monkeypatch.setenv("TG_NOTES_KEYRING_SERVICE", "tg-notes-sandbox")
+    assert secrets._keyring_service() == "tg-notes-sandbox"
+
+
+def test_keyring_probe_uses_sandbox_service(mocker, monkeypatch) -> None:
+    monkeypatch.setenv("TG_NOTES_KEYRING_SERVICE", "tg-notes-sandbox")
+    setp = mocker.patch("keyring.set_password")
+    mocker.patch("keyring.get_password", return_value="1")
+    mocker.patch("keyring.delete_password")
+
+    assert secrets.keyring_probe() == (True, None)
+    assert setp.call_args.args[0] == "tg-notes-sandbox"
+
+
 # --- keyring_available ------------------------------------------------------------
 
 

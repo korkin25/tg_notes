@@ -90,6 +90,23 @@ tg-notes secrets migrate --to file      # roll back to on-disk files
 `secrets doctor` classifies the vault round-trip and tells you precisely what to fix
 (expose a group, turn confirmation off, hand the bus over, or just migrate).
 
+## Isolated / sandbox install
+
+Two env vars carve out a fully isolated tg-notes install so you can exercise
+`setup` / `secrets doctor` / `secrets migrate` end-to-end without ever touching your
+real config, session, or vault:
+
+- `TG_NOTES_CONFIG_DIR=/path/to/sandbox` — the exact config directory. `config.toml`
+  and the default `*.session` live directly in it, bypassing XDG (`TG_NOTES_CONFIG_DIR`
+  wins over `XDG_CONFIG_HOME`).
+- `TG_NOTES_KEYRING_SERVICE=tg-notes-sandbox` — the keyring service namespace. A sandbox
+  `secrets migrate --to keyring` then writes under `tg-notes-sandbox`, so it can never
+  overwrite the real `tg-notes` vault entries.
+
+With neither set, everything behaves exactly as before (config under
+`~/.config/tg-notes`, keyring service `tg-notes`). `secrets doctor` / `secrets status`
+print the active `config dir` and `keyring service`, so you can confirm the isolation.
+
 ## References
 
 - keepassxc#6458 — persistent per-application authorization (open)

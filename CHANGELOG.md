@@ -9,6 +9,13 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
+- `TG_NOTES_CONFIG_DIR` and `TG_NOTES_KEYRING_SERVICE` env vars for an isolated sandbox
+  install: `TG_NOTES_CONFIG_DIR` overrides the exact config directory (its own `config.toml`
+  + `*.session`, taking precedence over XDG), and `TG_NOTES_KEYRING_SERVICE` overrides the
+  keyring service namespace so a sandbox `secrets migrate` never overwrites the real
+  `tg-notes` vault entries — safe end-to-end testing of `setup`/`secrets doctor`/`migrate`.
+  With neither set, behavior is unchanged. `secrets doctor` and `secrets status` now show
+  the active config dir and keyring service.
 - Interactive pickers for `send --contact`, `contacts remove`, `secrets migrate --to`, and
   `notes list --notebook` — omit the value in an interactive terminal to choose from a list
   via a fuzzy finder (`fzf`/`sk`/`fzy`) when one is installed, else a numbered menu. The
