@@ -6,23 +6,24 @@ live in `docs/`; stages, current status, and checklists are tracked here. Done t
 
 ## Current state / next action
 
-- Branch: `main` (feature/tgn-8 merged).
-- **Phase 1 (CLI core) is COMPLETE.** TGN-1..TGN-8 done, in `CHANGELOG.md`, each verified
-  end-to-end on the real account (@korkin25). Full command surface: `setup`, `login`,
-  `whoami`, `note add`, `notes list`, `contacts list/set/remove`, `send`, `notebooks list`.
-  121 tests green, ruff + bandit clean.
-- TGN-8 verified live: notebooks list excludes `General`/`contacts`, sorts, picks up a new
-  notebook; not-set-up → 4. Temp notebook cleaned up.
-- **Phase 2 (the Claude Code Skill) is COMPLETE.** TGN-9 capture (`skills/tg-notes/`),
-  TGN-10 compile & send + TGN-11 daily preset (`skills/tg-notes-send/`) — all verified live
-  on the real account. Together they replace the retired `report`/`report-send` pair,
-  Telegram-native. Their orphaned `~/.claude/report-send.*` config/session were deleted.
+- Branch: `main` (feature/packaging merged).
+- **Phases 1 (CLI core) and 2 (the Claude Code Skill) are COMPLETE**, in `CHANGELOG.md`,
+  each verified end-to-end on @korkin25. Commands: `setup/login/whoami/note add/notes
+  list/contacts/send/notebooks list`; skills: `tg-notes` (capture), `tg-notes-send`
+  (compile & send + daily preset). 121 tests green, ruff + bandit clean.
+- **Dev-installed** (done): `tg-notes` on PATH via `~/.local/bin/tg-notes` → repo `.venv`;
+  both skills symlinked into `~/.claude/skills`. They load in new Claude Code sessions.
+- **TGN-13/14 done + release prepped (this branch):** plugin/marketplace manifests
+  (`.claude-plugin/`), `claude plugin validate . --strict` passes; version single-sourced
+  from `tg_notes/__init__.py` and bumped to `0.1.0`; `python -m build` produces a clean
+  sdist+wheel (`twine check` PASSED); `release.yml` switched to PyPI Trusted Publishing.
 - Logged TGN-18 (pluggable secrets backend — Secret Service/keyring incl. KeePassXC,
   `StringSession` in the vault) as later work; the file backend stays the default.
-- **NEXT (agreed): dev-install** so the skills work in the user's own sessions — symlink
-  `skills/tg-notes` + `skills/tg-notes-send` into `~/.claude/skills`, and put `tg-notes`
-  on PATH (`pipx install -e .` or symlink `.venv/bin/tg-notes` → `~/.local/bin`). Then
-  Phase 3 packaging (TGN-12 PyPI, TGN-13/14 plugin + marketplace).
+- **NEXT — TGN-12 publish (gated, outward, needs the user):** one-time PyPI Trusted
+  Publisher for `tg-notes` bound to `korkin25/tg_notes` (workflow `release.yml`, env
+  `pypi`), then `git tag v0.1.0 && git push --tags` → CI builds & publishes. Do NOT publish
+  without an explicit go. After that: TGN-15 (community marketplace, later), TGN-17 (MCP,
+  optional).
 
 ## Legend
 
@@ -57,10 +58,8 @@ Complete — all rows moved to `CHANGELOG.md`.
 
 | ID | Status | Task | Details |
 | --- | --- | --- | --- |
-| TGN-12 | ⬜ | Publish CLI to PyPI | Package `tg-notes` and publish to PyPI; the skill installs it via `pipx install tg-notes`. Decided (was TGN-D1). |
-| TGN-13 | ⬜ | Claude plugin packaging | `.claude-plugin/plugin.json`, skill path, `${CLAUDE_PLUGIN_ROOT}` for bundled paths. |
-| TGN-14 | ⬜ | Git plugin marketplace | `.claude-plugin/marketplace.json`; document `/plugin marketplace add` and install. |
-| TGN-15 | ⬜ | Submit to community marketplace | Validate with `claude plugin validate .`, then submit via the console form. Later. |
+| TGN-12 | 🟡 | Publish CLI to PyPI | Repo prepped (0.1.0, single-source version, `release.yml` → Trusted Publishing, build+`twine check` green). Remaining (gated, needs user): PyPI Trusted Publisher for `tg-notes`↔`korkin25/tg_notes`, then tag `v0.1.0`. Decided (was TGN-D1). |
+| TGN-15 | ⬜ | Submit to community marketplace | Validate with `claude plugin validate .` (done — passes), then submit via the console form. Later. |
 | TGN-17 | ⬜ | Local MCP adapter | Expose the core as a local stdio MCP server (official mcp / FastMCP) alongside the CLI: tools note_add / notes_list / contacts_list / send. Same core, second frontend; broadens reach to GUI clients (Claude Desktop, ChatGPT) that cannot shell out. Session/secrets stay local (stdio only, not hosted). |
 
 ## Phase 4 — Multi-agent portability

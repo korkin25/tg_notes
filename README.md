@@ -41,12 +41,24 @@ to compile, and publishes the result. See [docs/architecture.md](docs/architectu
 
 ## Install & usage
 
-The CLI will ship on PyPI; the Claude Code Skill will ship as a plugin installable from a
-git marketplace. More usage lands here as commands are implemented.
+Two pieces: the **CLI** (does the Telegram I/O) and the **Claude Code plugin** (the skills
+that drive it).
 
-The capture skill lives at [`skills/tg-notes/SKILL.md`](skills/tg-notes/SKILL.md): from an
-agent session it composes a note (verbatim, or a summary of real session facts) and files
-it with `tg-notes note add`. It drives the CLI, so `tg-notes` must be on `PATH`.
+```bash
+# CLI — from PyPI (once published; see CHANGELOG for release status):
+pipx install tg-notes
+
+# Plugin (bundles the tg-notes and tg-notes-send skills) — from this git marketplace:
+#   /plugin marketplace add korkin25/tg_notes
+#   /plugin install tg-notes@tg-notes-marketplace
+```
+
+The skills drive the CLI, so `tg-notes` must be on `PATH`. The two skills:
+- [`skills/tg-notes/`](skills/tg-notes/SKILL.md) — **capture**: compose a note (verbatim or
+  a summary of real session facts) and file it with `tg-notes note add`.
+- [`skills/tg-notes-send/`](skills/tg-notes-send/SKILL.md) — **compile & send**: rewrite
+  stored notes per a contact's style, confirm, and publish with `tg-notes send` (daily
+  report is a preset).
 
 Available so far:
 
