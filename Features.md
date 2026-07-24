@@ -1,8 +1,27 @@
 # Features
 
-> Planned. Nothing is implemented yet — see [../TODO.md](../TODO.md) for status.
+The single **numbered backlog** for `tg_notes`: everything the user asks to build and
+every brainstorm idea. Numbers are **stable and never reused**. Entries are grouped by
+state — **Current** (in progress) · **Planned** · **Brainstorm** (ideas) · **Delivered**.
+New requests and ideas land here first, then become tasks in [TODO.md](TODO.md).
 
-## Core
+## Current (in progress)
+
+_None._
+
+## Planned
+
+15. **Community-marketplace listing.** Submit the Claude plugin to a community
+    marketplace (a user web action; the repo side already passes
+    `claude plugin validate . --strict` and installs from `korkin25/tg_notes`).
+
+## Brainstorm (ideas)
+
+_None yet._
+
+## Delivered
+
+### Core
 
 1. **Telegram-native storage.** Notes live in a private Telegram forum group; nothing
    is kept in local files.
@@ -40,12 +59,12 @@
 9. **Flexible targets.** Deliver to a plain chat or a specific forum topic, with an
    optional mention.
 
-## Presets
+### Presets
 
 10. **Daily work report.** Collect the day's notes, compile them, and send — one command
-   on top of the core.
+    on top of the core.
 
-## Tooling & distribution
+### Tooling & distribution
 
 11. **Standalone CLI (`tg-notes`).** Does all Telegram I/O; usable on its own or from a
     scheduler. `tg-notes setup` provisions the store idempotently — creates or attaches
