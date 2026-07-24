@@ -632,6 +632,7 @@ def test_reco_ready_file_backend_suggests_migrate() -> None:
 def test_reco_locked_suggests_confirm_off() -> None:
     recs = cli._secrets_recommendations(_secrets_state(probe_ok=False, probe_kind="locked"))
     assert any("confirm" in r.lower() for r in recs)
+    assert any("dedicated" in r.lower() for r in recs)
 
 
 def test_reco_no_collection_suggests_expose_group() -> None:

@@ -113,6 +113,8 @@ pipx install "tg-notes[keyring]"
 tg-notes secrets status
 tg-notes secrets doctor                    # diagnose the store + get setup/migration steps
 tg-notes secrets migrate --to keyring     # or: --to file to move back
+# Using KeePassXC as the store (serve Secret Service, dedicated group, the
+# confirmation trade-off): see docs/keepassxc.md.
 
 # Log in on its own (setup calls this for you; useful to re-authorize a new device).
 # Requires api_id/api_hash in local config; writes a chmod-600 session file.
