@@ -117,6 +117,112 @@ def test_read_real_credentials_errors_without_api_id(monkeypatch, mocker) -> Non
         sandbox._read_real_credentials()
 
 
+# --- CI credential source: seed from env, not the local keyring (TGN-25) ----------
+#
+# Under GitHub Actions there is no local keyring/session. The dedicated test account's
+# credentials arrive as environment variables (from the `ci-functional` secrets), and
+# `_provision_sandbox` seeds a throwaway file-backend config from them instead of reading
+# the real vault. These tests never touch a real vault or Telegram.
+
+_CI_KEYS = ("TG_NOTES_API_ID", "TG_NOTES_API_HASH", "TG_NOTES_SESSION", "TG_NOTES_TEST_GROUP")
+
+
+def _set_ci_env(
+    monkeypatch,
+    *,
+    api_id="42",
+    api_hash="cihash",
+    session="1BcIsThisAStringSession",
+    group="-1001234567890",
+) -> None:
+    """Set (or clear, when a value is ``None``) the CI credential env vars."""
+    for key in _CI_KEYS:
+        monkeypatch.delenv(key, raising=False)
+    for key, value in {
+        "TG_NOTES_API_ID": api_id,
+        "TG_NOTES_API_HASH": api_hash,
+        "TG_NOTES_SESSION": session,
+        "TG_NOTES_TEST_GROUP": group,
+    }.items():
+        if value is not None:
+            monkeypatch.setenv(key, value)
+
+
+def test_read_ci_credentials_from_env(monkeypatch) -> None:
+    _set_ci_env(monkeypatch)
+    assert sandbox._read_ci_credentials() == (
+        42,
+        "cihash",
+        "1BcIsThisAStringSession",
+        -1001234567890,
+    )
+
+
+def test_read_ci_credentials_without_group(monkeypatch) -> None:
+    _set_ci_env(monkeypatch, group=None)
+    assert sandbox._read_ci_credentials() == (42, "cihash", "1BcIsThisAStringSession", None)
+
+
+def test_read_ci_credentials_returns_none_when_incomplete(monkeypatch) -> None:
+    """A missing required var ⇒ no CI creds ⇒ caller falls back to the local recipe."""
+    _set_ci_env(monkeypatch, session=None)
+    assert sandbox._read_ci_credentials() is None
+
+
+def test_read_ci_credentials_bad_api_id(monkeypatch) -> None:
+    _set_ci_env(monkeypatch, api_id="not-an-int")
+    with pytest.raises(sandbox.SandboxError):
+        sandbox._read_ci_credentials()
+
+
+def test_read_ci_credentials_bad_group(monkeypatch) -> None:
+    _set_ci_env(monkeypatch, group="not-an-int")
+    with pytest.raises(sandbox.SandboxError):
+        sandbox._read_ci_credentials()
+
+
+def test_provision_uses_ci_credentials(monkeypatch, mocker, tmp_path) -> None:
+    """With CI creds in the env, provisioning seeds the file backend from them and never
+    reads the real vault; a supplied test group is attached (idempotent re-runs)."""
+    _set_ci_env(monkeypatch, group="-1009876543210")
+    real = mocker.patch.object(sandbox, "_read_real_credentials")
+    saved = mocker.patch.object(sandbox.config, "save")
+    write_session = mocker.patch.object(sandbox.secrets, "_write_file_session")
+    run_setup = mocker.patch.object(sandbox, "_run_tg_setup")
+
+    sandbox._provision_sandbox(tmp_path)
+
+    real.assert_not_called()
+    cfg = saved.call_args[0][0]
+    assert cfg.api_id == 42
+    assert cfg.api_hash == "cihash"
+    assert cfg.secrets_backend == "file"
+    assert cfg.storage_group_id == -1009876543210
+    assert write_session.call_args[0][1] == "1BcIsThisAStringSession"
+    run_setup.assert_called_once_with(tmp_path)
+
+
+def test_provision_falls_back_to_real_credentials(monkeypatch, mocker, tmp_path) -> None:
+    """No CI creds ⇒ the local keyring recipe runs and lets `setup` create the group."""
+    for key in _CI_KEYS:
+        monkeypatch.delenv(key, raising=False)
+    real = mocker.patch.object(
+        sandbox, "_read_real_credentials", return_value=(7, "realhash", "realsession")
+    )
+    saved = mocker.patch.object(sandbox.config, "save")
+    write_session = mocker.patch.object(sandbox.secrets, "_write_file_session")
+    mocker.patch.object(sandbox, "_run_tg_setup")
+
+    sandbox._provision_sandbox(tmp_path)
+
+    real.assert_called_once()
+    cfg = saved.call_args[0][0]
+    assert cfg.api_id == 7
+    assert cfg.api_hash == "realhash"
+    assert cfg.storage_group_id is None
+    assert write_session.call_args[0][1] == "realsession"
+
+
 # --- run: builds sandbox env + execs the given argv ------------------------------
 
 
