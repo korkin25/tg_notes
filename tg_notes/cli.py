@@ -161,6 +161,72 @@ def _read_text_arg(path: str) -> str:
     return Path(path).read_text(encoding="utf-8")
 
 
+def _interactive() -> bool:
+    """True only when both stdin and stdout are real terminals."""
+    return sys.stdin.isatty() and sys.stdout.isatty()
+
+
+#: Fuzzy finders tried in order; first one on PATH wins.
+_PICKERS = ("fzf", "sk", "fzy")
+
+
+def _pick(options: list[tuple[str, str]], prompt: str) -> str | None:
+    """Let the user choose one of ``options`` (each a ``(value, label)`` pair).
+
+    Uses a fuzzy finder (fzf/sk/fzy) when one is installed; otherwise a numbered prompt.
+    Returns the chosen ``value``, or ``None`` if there is nothing to choose, the session is
+    not interactive, or the user cancels. Never reads stdin/prompts in a non-TTY session.
+    """
+    import shutil
+
+    # Safe: finder resolved via shutil.which, fixed argv, no shell, labels fed via stdin.
+    import subprocess  # nosec B404
+
+    options = list(options)
+    if not options or not _interactive():
+        return None
+    labels = [label for _, label in options]
+    finder = None
+    for name in _PICKERS:
+        finder = shutil.which(name)
+        if finder:
+            break
+    chosen: str | None
+    if finder:
+        try:
+            proc = subprocess.run(  # nosec B603
+                [finder, "--prompt", f"{prompt}> ", "--height", "40%", "--reverse"],
+                input="\n".join(labels),
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+        except OSError:
+            return None
+        chosen = proc.stdout.strip() if proc.returncode == 0 else None
+    else:
+        for i, label in enumerate(labels, 1):
+            sys.stderr.write(f"  {i}. {label}\n")
+        raw = input(f"{prompt} [1-{len(labels)}]: ").strip()
+        try:
+            chosen = labels[int(raw) - 1]
+        except (ValueError, IndexError):
+            chosen = None
+    if chosen is None:
+        return None
+    return next((value for value, label in options if label == chosen), None)
+
+
+def _contact_label(c: dict) -> str:
+    """Build a human-readable one-line label for a contact picker entry."""
+    bits = [c["key"]]
+    if c.get("name"):
+        bits.append(f"— {c['name']}")
+    if c.get("chat_id"):
+        bits.append(f"({c['chat_id']})")
+    return " ".join(bits)
+
+
 def _note_add(args: argparse.Namespace) -> int:
     """Append a note to a notebook topic (TGN-4)."""
     cfg = config.load()
@@ -212,8 +278,21 @@ def _notes_list(args: argparse.Namespace) -> int:
         except ValueError as exc:
             sys.stderr.write(f"invalid --since value {args.since!r}: {exc}\n")
             return 1
+    notebook = args.notebook
+    if notebook is None:
+        # Preserve the old non-interactive default (daily); offer a picker to humans.
+        notebook = "daily"
+        if _interactive():
+            try:
+                items = telegram.notebooks_list(cfg)
+            except _STORE_ERRORS as exc:
+                return _handle_store_errors(exc)
+            if items:
+                picked = _pick([(n["name"], n["name"]) for n in items], "notebook")
+                if picked is not None:
+                    notebook = picked
     try:
-        notes = telegram.notes_list(cfg, notebook=args.notebook, since=since)
+        notes = telegram.notes_list(cfg, notebook=notebook, since=since)
     except _STORE_ERRORS as exc:
         return _handle_store_errors(exc)
     print(json.dumps(notes, ensure_ascii=False))
@@ -256,8 +335,24 @@ def _contacts_set(args: argparse.Namespace) -> int:
 def _contacts_remove(args: argparse.Namespace) -> int:
     """Remove a contact by key (TGN-6)."""
     cfg = config.load()
+    key = args.key
+    if key is None:
+        if not _interactive():
+            sys.stderr.write("specify a contact key (e.g. `tg-notes contacts remove boss`)\n")
+            return 2
+        try:
+            items = telegram.contacts_list(cfg)
+        except _STORE_ERRORS as exc:
+            return _handle_store_errors(exc)
+        if not items:
+            sys.stderr.write("no contacts yet — nothing to remove\n")
+            return 2
+        key = _pick([(c["key"], _contact_label(c)) for c in items], "contact")
+        if key is None:
+            sys.stderr.write("no contact selected\n")
+            return 2
     try:
-        result = telegram.contacts_remove(cfg, args.key)
+        result = telegram.contacts_remove(cfg, key)
     except _STORE_ERRORS as exc:
         return _handle_store_errors(exc)
     print(json.dumps(result, ensure_ascii=False))
@@ -278,13 +373,31 @@ def _notebooks_list(args: argparse.Namespace) -> int:
 def _send(args: argparse.Namespace) -> int:
     """Publish compiled text to a contact's chat/topic (TGN-7)."""
     cfg = config.load()
+    # Resolve the contact BEFORE touching the text: agents pass --contact and run
+    # non-interactively, so this path stays byte-for-byte unchanged for them.
+    contact = args.contact
+    if contact is None:
+        if not _interactive():
+            sys.stderr.write("--contact is required (e.g. --contact boss)\n")
+            return 2
+        try:
+            items = telegram.contacts_list(cfg)
+        except _STORE_ERRORS as exc:
+            return _handle_store_errors(exc)
+        if not items:
+            sys.stderr.write("no contacts yet — add one with `tg-notes contacts set`\n")
+            return 2
+        contact = _pick([(c["key"], _contact_label(c)) for c in items], "contact")
+        if contact is None:
+            sys.stderr.write("no contact selected\n")
+            return 2
     try:
         text = _read_text_arg(args.text_file)
     except OSError as exc:
         sys.stderr.write(f"cannot read text from {args.text_file}: {exc}\n")
         return 1
     try:
-        result = telegram.send(cfg, args.contact, text, dry_run=args.dry_run)
+        result = telegram.send(cfg, contact, text, dry_run=args.dry_run)
     except _STORE_ERRORS as exc:
         return _handle_store_errors(exc)
     except telegram.ContactNotFoundError as exc:
@@ -492,12 +605,21 @@ def _secrets_status(args: argparse.Namespace) -> int:
 def _secrets_migrate(args: argparse.Namespace) -> int:
     """Move secrets (api_hash + session) between the file and keyring backends (TGN-18)."""
     cfg = config.load()
+    target = args.to
+    if target is None:
+        if not _interactive():
+            sys.stderr.write("specify --to file|keyring\n")
+            return 2
+        target = _pick([("file", "file"), ("keyring", "keyring")], "backend")
+        if target is None:
+            sys.stderr.write("no backend selected\n")
+            return 2
     current = secrets.get_backend(cfg).name
-    if args.to == current:
+    if target == current:
         print(json.dumps({"backend": current, "migrated": False, "note": "already active"}))
         return 0
     try:
-        if args.to == "keyring":
+        if target == "keyring":
             state = _secrets_state(cfg)
             if not state["probe_ok"]:
                 sys.stderr.write("cannot migrate — the secret store is not ready:\n")
@@ -506,7 +628,7 @@ def _secrets_migrate(args: argparse.Namespace) -> int:
                 sys.stderr.write("run `tg-notes secrets doctor` for the full diagnosis.\n")
                 return 1
             secrets.migrate_to_keyring(cfg)
-        else:
+        elif target == "file":
             secrets.migrate_to_file(cfg)
     except (ValueError, RuntimeError) as exc:
         sys.stderr.write(f"migration failed: {exc}\n")
@@ -561,7 +683,11 @@ def build_parser() -> argparse.ArgumentParser:
     p_notes = sub.add_parser("notes", help="query notes")
     notes_sub = p_notes.add_subparsers(dest="subcommand", metavar="<subcommand>", required=True)
     p_notes_list = notes_sub.add_parser("list", help="list raw notes from a notebook")
-    p_notes_list.add_argument("--notebook", default="daily", help="source notebook topic")
+    p_notes_list.add_argument(
+        "--notebook",
+        default=None,
+        help="source notebook topic (omit to pick interactively; else defaults to daily)",
+    )
     p_notes_list.add_argument(
         "--since",
         help="lower time bound: today | HH:MM | YYYY-MM-DD | ISO datetime (local if naive)",
@@ -581,12 +707,19 @@ def build_parser() -> argparse.ArgumentParser:
     p_c_set.add_argument("--style", help="prompt: how to compile notes for this recipient")
     p_c_set.set_defaults(func=_contacts_set)
     p_c_rm = contacts_sub.add_parser("remove", help="remove a contact")
-    p_c_rm.add_argument("key", help="contact key")
+    p_c_rm.add_argument(
+        "key", nargs="?", default=None, help="contact key (omit to pick interactively)"
+    )
     p_c_rm.set_defaults(func=_contacts_remove)
 
     # send (TGN-7)
     p_send = sub.add_parser("send", help="publish a compiled note to a contact")
-    p_send.add_argument("--contact", required=True, help="contact key from the address book")
+    p_send.add_argument(
+        "--contact",
+        required=False,
+        default=None,
+        help="contact key from the address book (omit to pick interactively)",
+    )
     p_send.add_argument(
         "--text-file", required=True, help="file with the compiled text (use - for stdin)"
     )
@@ -615,7 +748,10 @@ def build_parser() -> argparse.ArgumentParser:
     p_sec_doc.set_defaults(func=_secrets_doctor)
     p_sec_mig = secrets_sub.add_parser("migrate", help="move secrets between backends")
     p_sec_mig.add_argument(
-        "--to", required=True, choices=["file", "keyring"], help="target backend"
+        "--to",
+        choices=["file", "keyring"],
+        default=None,
+        help="target backend (omit to pick interactively)",
     )
     p_sec_mig.set_defaults(func=_secrets_migrate)
 

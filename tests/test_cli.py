@@ -246,6 +246,7 @@ def test_notes_list_command_prints_json(mocker, capsys) -> None:
 def test_notes_list_command_parses_since(mocker) -> None:
     cfg = config.Config(api_id=1, api_hash="h", storage_group_id=-100)
     mocker.patch("tg_notes.cli.config.load", return_value=cfg)
+    mocker.patch("tg_notes.cli._interactive", return_value=False)
     lst = mocker.patch("tg_notes.cli.telegram.notes_list", return_value=[])
 
     rc = cli.main(["notes", "list", "--since", "2026-07-24"])
@@ -259,6 +260,7 @@ def test_notes_list_command_parses_since(mocker) -> None:
 def test_notes_list_command_invalid_since_returns_1(mocker) -> None:
     cfg = config.Config(api_id=1, api_hash="h", storage_group_id=-100)
     mocker.patch("tg_notes.cli.config.load", return_value=cfg)
+    mocker.patch("tg_notes.cli._interactive", return_value=False)
     lst = mocker.patch("tg_notes.cli.telegram.notes_list")
 
     rc = cli.main(["notes", "list", "--since", "not-a-date"])
@@ -269,6 +271,7 @@ def test_notes_list_command_invalid_since_returns_1(mocker) -> None:
 
 def test_notes_list_command_not_set_up_returns_4(mocker, capsys) -> None:
     mocker.patch("tg_notes.cli.config.load", return_value=config.Config())
+    mocker.patch("tg_notes.cli._interactive", return_value=False)
     mocker.patch(
         "tg_notes.cli.telegram.notes_list",
         side_effect=telegram.NotSetUpError("run `tg-notes setup` first"),
@@ -284,6 +287,7 @@ def test_notes_list_command_not_authorized_returns_3(mocker, capsys) -> None:
     mocker.patch(
         "tg_notes.cli.config.load", return_value=config.Config(api_id=1, api_hash="h")
     )
+    mocker.patch("tg_notes.cli._interactive", return_value=False)
     mocker.patch(
         "tg_notes.cli.telegram.notes_list",
         side_effect=telegram.NotAuthorizedError("not logged in"),
@@ -693,3 +697,350 @@ def test_secrets_migrate_keyring_not_ready_shows_recommendations(mocker, capsys)
     assert rc == 1
     mig.assert_not_called()
     assert "confirm" in capsys.readouterr().err.lower()
+
+
+# --- interactive pickers (TGN-fzf) -----------------------------------------------
+#
+# Safety contract: a picker fires ONLY when the value is omitted AND the session is
+# interactive (both stdin and stdout are TTYs). The agent Skills always pass the value
+# via a flag and run non-interactively, so those paths must never invoke `_pick`.
+
+
+def _contact(key: str, name: str | None = None, chat_id: str | None = None) -> dict:
+    return {
+        "key": key, "name": name, "chat_id": chat_id, "topic_id": None,
+        "mention": None, "style": None,
+    }
+
+
+# --- _pick unit tests ---
+
+
+def test_pick_uses_fzf_when_available(mocker) -> None:
+    mocker.patch("tg_notes.cli._interactive", return_value=True)
+    mocker.patch(
+        "shutil.which", side_effect=lambda name: "/usr/bin/fzf" if name == "fzf" else None
+    )
+    proc = mocker.Mock(returncode=0, stdout="boss — Alice\n")
+    run = mocker.patch("subprocess.run", return_value=proc)
+
+    options = [("boss", "boss — Alice"), ("mgr", "mgr — Bob")]
+    assert cli._pick(options, "contact") == "boss"
+    run.assert_called_once()
+
+
+def test_pick_numbered_fallback_when_no_finder(mocker) -> None:
+    mocker.patch("tg_notes.cli._interactive", return_value=True)
+    mocker.patch("shutil.which", return_value=None)  # no fzf/sk/fzy on PATH
+    run = mocker.patch("subprocess.run")
+    inp = mocker.patch("builtins.input", return_value="2")
+
+    options = [("boss", "boss — Alice"), ("mgr", "mgr — Bob")]
+    assert cli._pick(options, "contact") == "mgr"
+    run.assert_not_called()  # no finder → no subprocess
+    inp.assert_called_once()
+
+
+def test_pick_non_interactive_returns_none_without_prompting(mocker) -> None:
+    mocker.patch("tg_notes.cli._interactive", return_value=False)
+    which = mocker.patch("shutil.which")
+    run = mocker.patch("subprocess.run")
+    inp = mocker.patch("builtins.input")
+
+    assert cli._pick([("boss", "boss — Alice")], "contact") is None
+    which.assert_not_called()
+    run.assert_not_called()
+    inp.assert_not_called()
+
+
+def test_pick_empty_options_returns_none(mocker) -> None:
+    interactive = mocker.patch("tg_notes.cli._interactive", return_value=True)
+    assert cli._pick([], "contact") is None
+    interactive.assert_not_called()  # short-circuits before checking the session
+
+
+def test_pick_fzf_cancel_returns_none(mocker) -> None:
+    mocker.patch("tg_notes.cli._interactive", return_value=True)
+    mocker.patch(
+        "shutil.which", side_effect=lambda name: "/usr/bin/fzf" if name == "fzf" else None
+    )
+    mocker.patch("subprocess.run", return_value=mocker.Mock(returncode=1, stdout=""))
+
+    assert cli._pick([("boss", "boss — Alice")], "contact") is None
+
+
+def test_contact_label_composes_key_name_chat_id() -> None:
+    label = cli._contact_label(_contact("boss", name="Alice", chat_id="@boss"))
+    assert label == "boss — Alice (@boss)"
+    assert cli._contact_label(_contact("plain")) == "plain"
+
+
+# --- send: agent-safety + interactive path ---
+
+
+def test_send_with_contact_flag_does_not_pick(mocker, tmp_path) -> None:
+    out = tmp_path / "out.txt"
+    out.write_text("compiled report", encoding="utf-8")
+    cfg = config.Config(api_id=1, api_hash="h", storage_group_id=-100)
+    mocker.patch("tg_notes.cli.config.load", return_value=cfg)
+    pick = mocker.patch("tg_notes.cli._pick")
+    clist = mocker.patch("tg_notes.cli.telegram.contacts_list")
+    snd = mocker.patch(
+        "tg_notes.cli.telegram.send", return_value={"contact": "boss", "sent": True}
+    )
+
+    rc = cli.main(["send", "--contact", "boss", "--text-file", str(out)])
+
+    assert rc == 0
+    pick.assert_not_called()  # flag given → never prompt
+    clist.assert_not_called()
+    snd.assert_called_once_with(cfg, "boss", "compiled report", dry_run=False)
+
+
+def test_send_without_contact_noninteractive_errors(mocker, capsys) -> None:
+    cfg = config.Config(api_id=1, api_hash="h", storage_group_id=-100)
+    mocker.patch("tg_notes.cli.config.load", return_value=cfg)
+    mocker.patch("tg_notes.cli._interactive", return_value=False)
+    pick = mocker.patch("tg_notes.cli._pick")
+    snd = mocker.patch("tg_notes.cli.telegram.send")
+
+    rc = cli.main(["send", "--text-file", "-"])
+
+    assert rc == 2
+    pick.assert_not_called()  # non-interactive → never prompt
+    snd.assert_not_called()
+    assert "--contact" in capsys.readouterr().err
+
+
+def test_send_without_contact_interactive_uses_pick(mocker, tmp_path) -> None:
+    out = tmp_path / "out.txt"
+    out.write_text("compiled report", encoding="utf-8")
+    cfg = config.Config(api_id=1, api_hash="h", storage_group_id=-100)
+    mocker.patch("tg_notes.cli.config.load", return_value=cfg)
+    mocker.patch("tg_notes.cli._interactive", return_value=True)
+    clist = mocker.patch(
+        "tg_notes.cli.telegram.contacts_list",
+        return_value=[_contact("boss", name="Alice", chat_id="@boss")],
+    )
+    pick = mocker.patch("tg_notes.cli._pick", return_value="boss")
+    snd = mocker.patch(
+        "tg_notes.cli.telegram.send", return_value={"contact": "boss", "sent": True}
+    )
+
+    rc = cli.main(["send", "--text-file", str(out)])
+
+    assert rc == 0
+    clist.assert_called_once_with(cfg)
+    pick.assert_called_once()
+    snd.assert_called_once_with(cfg, "boss", "compiled report", dry_run=False)
+
+
+def test_send_without_contact_interactive_no_contacts_errors(mocker, capsys) -> None:
+    cfg = config.Config(api_id=1, api_hash="h", storage_group_id=-100)
+    mocker.patch("tg_notes.cli.config.load", return_value=cfg)
+    mocker.patch("tg_notes.cli._interactive", return_value=True)
+    mocker.patch("tg_notes.cli.telegram.contacts_list", return_value=[])
+    snd = mocker.patch("tg_notes.cli.telegram.send")
+
+    rc = cli.main(["send", "--text-file", "-"])
+
+    assert rc == 2
+    snd.assert_not_called()
+    assert "contacts" in capsys.readouterr().err
+
+
+def test_send_without_contact_interactive_cancel_errors(mocker, capsys) -> None:
+    cfg = config.Config(api_id=1, api_hash="h", storage_group_id=-100)
+    mocker.patch("tg_notes.cli.config.load", return_value=cfg)
+    mocker.patch("tg_notes.cli._interactive", return_value=True)
+    mocker.patch(
+        "tg_notes.cli.telegram.contacts_list", return_value=[_contact("boss")]
+    )
+    mocker.patch("tg_notes.cli._pick", return_value=None)  # user cancels
+    snd = mocker.patch("tg_notes.cli.telegram.send")
+
+    rc = cli.main(["send", "--text-file", "-"])
+
+    assert rc == 2
+    snd.assert_not_called()
+    assert "no contact selected" in capsys.readouterr().err
+
+
+# --- contacts remove: agent-safety + interactive path ---
+
+
+def test_contacts_remove_with_key_does_not_pick(mocker) -> None:
+    cfg = config.Config(api_id=1, api_hash="h", storage_group_id=-100)
+    mocker.patch("tg_notes.cli.config.load", return_value=cfg)
+    pick = mocker.patch("tg_notes.cli._pick")
+    clist = mocker.patch("tg_notes.cli.telegram.contacts_list")
+    rm = mocker.patch(
+        "tg_notes.cli.telegram.contacts_remove",
+        return_value={"key": "boss", "removed": True},
+    )
+
+    rc = cli.main(["contacts", "remove", "boss"])
+
+    assert rc == 0
+    pick.assert_not_called()
+    clist.assert_not_called()
+    rm.assert_called_once_with(cfg, "boss")
+
+
+def test_contacts_remove_without_key_noninteractive_errors(mocker, capsys) -> None:
+    cfg = config.Config(api_id=1, api_hash="h", storage_group_id=-100)
+    mocker.patch("tg_notes.cli.config.load", return_value=cfg)
+    mocker.patch("tg_notes.cli._interactive", return_value=False)
+    pick = mocker.patch("tg_notes.cli._pick")
+    rm = mocker.patch("tg_notes.cli.telegram.contacts_remove")
+
+    rc = cli.main(["contacts", "remove"])
+
+    assert rc == 2
+    pick.assert_not_called()
+    rm.assert_not_called()
+    assert "contact key" in capsys.readouterr().err
+
+
+def test_contacts_remove_without_key_interactive_uses_pick(mocker) -> None:
+    cfg = config.Config(api_id=1, api_hash="h", storage_group_id=-100)
+    mocker.patch("tg_notes.cli.config.load", return_value=cfg)
+    mocker.patch("tg_notes.cli._interactive", return_value=True)
+    clist = mocker.patch(
+        "tg_notes.cli.telegram.contacts_list", return_value=[_contact("boss")]
+    )
+    pick = mocker.patch("tg_notes.cli._pick", return_value="boss")
+    rm = mocker.patch(
+        "tg_notes.cli.telegram.contacts_remove",
+        return_value={"key": "boss", "removed": True},
+    )
+
+    rc = cli.main(["contacts", "remove"])
+
+    assert rc == 0
+    clist.assert_called_once_with(cfg)
+    pick.assert_called_once()
+    rm.assert_called_once_with(cfg, "boss")
+
+
+# --- secrets migrate: agent-safety + interactive path ---
+
+
+def test_secrets_migrate_with_to_flag_does_not_pick(mocker) -> None:
+    cfg = config.Config(api_id=1, api_hash="h")
+    mocker.patch("tg_notes.cli.config.load", return_value=cfg)
+    mocker.patch("tg_notes.cli.config.save")
+    mocker.patch("tg_notes.cli.secrets.keyring_probe", return_value=(True, None))
+    mocker.patch("tg_notes.cli._secret_service_provider", return_value="keepassxc")
+    mocker.patch("tg_notes.cli._available_secret_stores", return_value=[])
+    pick = mocker.patch("tg_notes.cli._pick")
+    mig = mocker.patch("tg_notes.cli.secrets.migrate_to_keyring")
+
+    rc = cli.main(["secrets", "migrate", "--to", "keyring"])
+
+    assert rc == 0
+    pick.assert_not_called()
+    mig.assert_called_once_with(cfg)
+
+
+def test_secrets_migrate_without_to_noninteractive_errors(mocker, capsys) -> None:
+    cfg = config.Config(api_id=1, api_hash="h")
+    mocker.patch("tg_notes.cli.config.load", return_value=cfg)
+    mocker.patch("tg_notes.cli._interactive", return_value=False)
+    pick = mocker.patch("tg_notes.cli._pick")
+    migk = mocker.patch("tg_notes.cli.secrets.migrate_to_keyring")
+    migf = mocker.patch("tg_notes.cli.secrets.migrate_to_file")
+
+    rc = cli.main(["secrets", "migrate"])
+
+    assert rc == 2
+    pick.assert_not_called()
+    migk.assert_not_called()
+    migf.assert_not_called()
+    assert "--to" in capsys.readouterr().err
+
+
+def test_secrets_migrate_without_to_interactive_uses_pick(mocker) -> None:
+    cfg = config.Config(api_id=1, api_hash="h")
+    mocker.patch("tg_notes.cli.config.load", return_value=cfg)
+    mocker.patch("tg_notes.cli.config.save")
+    mocker.patch("tg_notes.cli._interactive", return_value=True)
+    mocker.patch("tg_notes.cli.secrets.keyring_probe", return_value=(True, None))
+    mocker.patch("tg_notes.cli._secret_service_provider", return_value="keepassxc")
+    mocker.patch("tg_notes.cli._available_secret_stores", return_value=[])
+    pick = mocker.patch("tg_notes.cli._pick", return_value="keyring")
+    mig = mocker.patch("tg_notes.cli.secrets.migrate_to_keyring")
+
+    rc = cli.main(["secrets", "migrate"])
+
+    assert rc == 0
+    pick.assert_called_once()
+    mig.assert_called_once_with(cfg)
+
+
+# --- notes list: interactive picker + non-interactive default ---
+
+
+def test_notes_list_without_notebook_noninteractive_defaults_daily(mocker) -> None:
+    cfg = config.Config(api_id=1, api_hash="h", storage_group_id=-100)
+    mocker.patch("tg_notes.cli.config.load", return_value=cfg)
+    mocker.patch("tg_notes.cli._interactive", return_value=False)
+    nb = mocker.patch("tg_notes.cli.telegram.notebooks_list")
+    lst = mocker.patch("tg_notes.cli.telegram.notes_list", return_value=[])
+
+    rc = cli.main(["notes", "list"])
+
+    assert rc == 0
+    nb.assert_not_called()  # non-interactive → no picker, no notebooks probe
+    lst.assert_called_once_with(cfg, notebook="daily", since=None)
+
+
+def test_notes_list_without_notebook_interactive_uses_pick(mocker) -> None:
+    cfg = config.Config(api_id=1, api_hash="h", storage_group_id=-100)
+    mocker.patch("tg_notes.cli.config.load", return_value=cfg)
+    mocker.patch("tg_notes.cli._interactive", return_value=True)
+    nb = mocker.patch(
+        "tg_notes.cli.telegram.notebooks_list",
+        return_value=[{"name": "weekly", "topic_id": 7}],
+    )
+    pick = mocker.patch("tg_notes.cli._pick", return_value="weekly")
+    lst = mocker.patch("tg_notes.cli.telegram.notes_list", return_value=[])
+
+    rc = cli.main(["notes", "list"])
+
+    assert rc == 0
+    nb.assert_called_once_with(cfg)
+    pick.assert_called_once()
+    lst.assert_called_once_with(cfg, notebook="weekly", since=None)
+
+
+def test_notes_list_interactive_pick_cancel_falls_back_to_daily(mocker) -> None:
+    cfg = config.Config(api_id=1, api_hash="h", storage_group_id=-100)
+    mocker.patch("tg_notes.cli.config.load", return_value=cfg)
+    mocker.patch("tg_notes.cli._interactive", return_value=True)
+    mocker.patch(
+        "tg_notes.cli.telegram.notebooks_list",
+        return_value=[{"name": "weekly", "topic_id": 7}],
+    )
+    mocker.patch("tg_notes.cli._pick", return_value=None)  # user cancels
+    lst = mocker.patch("tg_notes.cli.telegram.notes_list", return_value=[])
+
+    rc = cli.main(["notes", "list"])
+
+    assert rc == 0
+    lst.assert_called_once_with(cfg, notebook="daily", since=None)
+
+
+def test_notes_list_interactive_empty_notebooks_falls_back_to_daily(mocker) -> None:
+    cfg = config.Config(api_id=1, api_hash="h", storage_group_id=-100)
+    mocker.patch("tg_notes.cli.config.load", return_value=cfg)
+    mocker.patch("tg_notes.cli._interactive", return_value=True)
+    mocker.patch("tg_notes.cli.telegram.notebooks_list", return_value=[])
+    pick = mocker.patch("tg_notes.cli._pick")
+    lst = mocker.patch("tg_notes.cli.telegram.notes_list", return_value=[])
+
+    rc = cli.main(["notes", "list"])
+
+    assert rc == 0
+    pick.assert_not_called()  # nothing to choose from
+    lst.assert_called_once_with(cfg, notebook="daily", since=None)
