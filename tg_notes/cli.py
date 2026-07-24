@@ -21,7 +21,7 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-from . import __version__, config, secrets, telegram, transcribe
+from . import __version__, ai, config, secrets, telegram, transcribe
 
 
 def _login(args: argparse.Namespace) -> int:
@@ -494,6 +494,76 @@ def _send(args: argparse.Namespace) -> int:
     return 0
 
 
+def _fanout_use_ai(args: argparse.Namespace) -> bool:
+    """Decide whether to AI-rewrite: ``--no-rewrite`` off, ``--rewrite`` on, else auto."""
+    if args.rewrite is False:
+        return False
+    if args.rewrite is True:
+        return True
+    return ai.available()  # auto: only when the optional backend is installed
+
+
+def _fanout(args: argparse.Namespace) -> int:
+    """Fan out one source (a notebook's notes) to several contacts, rewritten per style (#24).
+
+    Reads the notebook's notes, then for each ``--contact`` rewrites the combined source for
+    that contact's ``style`` (best-effort — falls back to the raw notes when the AI backend is
+    unavailable or errors) and posts it. Headless companion to the ``tg-notes-send`` skill.
+    """
+    cfg = config.load()
+    since = None
+    if args.since:
+        try:
+            since = _parse_since(args.since)
+        except ValueError as exc:
+            sys.stderr.write(f"invalid --since value {args.since!r}: {exc}\n")
+            return 1
+    try:
+        notes = telegram.notes_list(cfg, notebook=args.notebook, since=since)
+    except _STORE_ERRORS as exc:
+        return _handle_store_errors(exc)
+    source = "\n".join(n["text"] for n in notes if n.get("text"))
+    if not source.strip():
+        print(json.dumps({"sent": [], "reason": "no notes"}, ensure_ascii=False))
+        return 0
+
+    try:
+        contacts = {c["key"]: c for c in telegram.contacts_list(cfg)}
+    except _STORE_ERRORS as exc:
+        return _handle_store_errors(exc)
+    missing = [key for key in args.contact if key not in contacts]
+    if missing:
+        sys.stderr.write(f"no such contact(s): {', '.join(missing)}\n")
+        return 5
+
+    use_ai = _fanout_use_ai(args)
+    model = args.model or cfg.ai_model or ai.DEFAULT_MODEL
+    results = []
+    for key in args.contact:
+        text = source
+        style = contacts[key].get("style")
+        if use_ai and style:
+            try:
+                text = ai.rewrite(source, style, model=model)
+            except (ai.AIUnavailable, ai.AIError) as exc:
+                sys.stderr.write(
+                    f"warning: AI rewrite for {key} failed ({exc}) — sending the raw notes\n"
+                )
+                text = source
+        try:
+            results.append(telegram.send(cfg, key, text, dry_run=args.dry_run))
+        except telegram.ContactNotFoundError as exc:
+            sys.stderr.write(f"{exc}\n")
+            return 5
+        except _STORE_ERRORS as exc:
+            return _handle_store_errors(exc)
+        except ValueError as exc:
+            sys.stderr.write(f"{exc}\n")
+            return 1
+    print(json.dumps(results, ensure_ascii=False))
+    return 0
+
+
 #: Known secret-store daemon process names → friendly labels.
 _SECRET_PROVIDERS = {
     "gnome-keyring-d": "gnome-keyring",
@@ -841,6 +911,33 @@ def build_parser() -> argparse.ArgumentParser:
         help="compose and print what would be sent, without sending",
     )
     p_send.set_defaults(func=_send)
+
+    # fanout — deliver a notebook's notes to several contacts, rewritten per style (TGN-26)
+    p_fan = sub.add_parser(
+        "fanout", help="send a notebook's notes to several contacts, rewritten per style"
+    )
+    p_fan.add_argument(
+        "--contact", action="append", required=True, metavar="KEY",
+        help="recipient contact key (repeatable — one delivery per contact)",
+    )
+    p_fan.add_argument("--notebook", default="daily", help="source notebook topic")
+    p_fan.add_argument(
+        "--since", help="lower time bound: today | HH:MM | YYYY-MM-DD | ISO datetime"
+    )
+    p_fan.add_argument(
+        "--rewrite",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="AI-rewrite per contact style (default: auto — on when the 'ai' extra is installed)",
+    )
+    p_fan.add_argument(
+        "--model", default=None,
+        help="override the rewrite model (default: config ai_model or claude-opus-5)",
+    )
+    p_fan.add_argument(
+        "--dry-run", action="store_true", help="compose per contact without sending"
+    )
+    p_fan.set_defaults(func=_fanout)
 
     # notebooks list (TGN-8)
     p_nb = sub.add_parser("notebooks", help="notebooks")
