@@ -31,7 +31,6 @@ def test_build_parser_still_exposes_stub_commands() -> None:
 @pytest.mark.parametrize(
     "argv",
     [
-        ["send", "--contact", "boss", "--text-file", "out.txt"],
         ["notebooks", "list"],
     ],
 )
@@ -420,4 +419,96 @@ def test_contacts_list_command_not_set_up_returns_4(mocker, capsys) -> None:
     )
 
     assert cli.main(["contacts", "list"]) == 4
+    assert "setup" in capsys.readouterr().err
+
+
+# --- send (TGN-7) ----------------------------------------------------------------
+
+
+def test_send_command_posts_and_prints(mocker, tmp_path) -> None:
+    out = tmp_path / "out.txt"
+    out.write_text("compiled report", encoding="utf-8")
+    cfg = config.Config(api_id=1, api_hash="h", storage_group_id=-100)
+    mocker.patch("tg_notes.cli.config.load", return_value=cfg)
+    snd = mocker.patch(
+        "tg_notes.cli.telegram.send",
+        return_value={"contact": "boss", "sent": True, "message_id": 1},
+    )
+
+    rc = cli.main(["send", "--contact", "boss", "--text-file", str(out)])
+
+    assert rc == 0
+    snd.assert_called_once_with(cfg, "boss", "compiled report", dry_run=False)
+
+
+def test_send_command_dry_run_passes_flag(mocker, tmp_path) -> None:
+    out = tmp_path / "out.txt"
+    out.write_text("x", encoding="utf-8")
+    cfg = config.Config(api_id=1, api_hash="h", storage_group_id=-100)
+    mocker.patch("tg_notes.cli.config.load", return_value=cfg)
+    snd = mocker.patch(
+        "tg_notes.cli.telegram.send", return_value={"contact": "boss", "sent": False}
+    )
+
+    rc = cli.main(["send", "--contact", "boss", "--text-file", str(out), "--dry-run"])
+
+    assert rc == 0
+    snd.assert_called_once_with(cfg, "boss", "x", dry_run=True)
+
+
+def test_send_command_reads_stdin(mocker, monkeypatch) -> None:
+    import io
+
+    cfg = config.Config(api_id=1, api_hash="h", storage_group_id=-100)
+    mocker.patch("tg_notes.cli.config.load", return_value=cfg)
+    snd = mocker.patch(
+        "tg_notes.cli.telegram.send", return_value={"contact": "boss", "sent": True}
+    )
+    monkeypatch.setattr("sys.stdin", io.StringIO("piped text"))
+
+    rc = cli.main(["send", "--contact", "boss", "--text-file", "-"])
+
+    assert rc == 0
+    snd.assert_called_once_with(cfg, "boss", "piped text", dry_run=False)
+
+
+def test_send_command_contact_not_found_returns_5(mocker, tmp_path, capsys) -> None:
+    out = tmp_path / "out.txt"
+    out.write_text("x", encoding="utf-8")
+    cfg = config.Config(api_id=1, api_hash="h", storage_group_id=-100)
+    mocker.patch("tg_notes.cli.config.load", return_value=cfg)
+    mocker.patch(
+        "tg_notes.cli.telegram.send",
+        side_effect=telegram.ContactNotFoundError("no contact 'ghost'"),
+    )
+
+    rc = cli.main(["send", "--contact", "ghost", "--text-file", str(out)])
+
+    assert rc == 5
+    assert "ghost" in capsys.readouterr().err
+
+
+def test_send_command_unreadable_file_returns_1(mocker, tmp_path) -> None:
+    cfg = config.Config(api_id=1, api_hash="h", storage_group_id=-100)
+    mocker.patch("tg_notes.cli.config.load", return_value=cfg)
+    snd = mocker.patch("tg_notes.cli.telegram.send")
+
+    rc = cli.main(["send", "--contact", "boss", "--text-file", str(tmp_path / "no.txt")])
+
+    assert rc == 1
+    snd.assert_not_called()
+
+
+def test_send_command_not_set_up_returns_4(mocker, tmp_path, capsys) -> None:
+    out = tmp_path / "out.txt"
+    out.write_text("x", encoding="utf-8")
+    mocker.patch("tg_notes.cli.config.load", return_value=config.Config())
+    mocker.patch(
+        "tg_notes.cli.telegram.send",
+        side_effect=telegram.NotSetUpError("run `tg-notes setup` first"),
+    )
+
+    rc = cli.main(["send", "--contact", "boss", "--text-file", str(out)])
+
+    assert rc == 4
     assert "setup" in capsys.readouterr().err

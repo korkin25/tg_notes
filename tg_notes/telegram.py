@@ -44,6 +44,10 @@ class NotSetUpError(Exception):
     """Raised when no storage group is configured/resolvable (run ``tg-notes setup``)."""
 
 
+class ContactNotFoundError(Exception):
+    """Raised when ``send`` targets a contact key absent from the address book."""
+
+
 def build_client(cfg: Config) -> TelegramClient:
     """Construct a Telethon client from local config (does not connect).
 
@@ -299,6 +303,74 @@ def contacts_remove(cfg: Config, key: str) -> dict:
         return {"key": key, "removed": True}
     finally:
         client.disconnect()
+
+
+def send(cfg: Config, contact_key: str, text: str, *, dry_run: bool = False) -> dict:
+    """Post ``text`` to a contact's chat/topic, as the user (TGN-7).
+
+    Looks the contact up in the address book, prepends its ``mention`` (if any), and posts
+    into its ``chat_id`` — into a forum topic when the contact has a ``topic_id``. With
+    ``dry_run`` the message is composed and returned but nothing is sent (no target lookup).
+
+    Returns ``{"contact", "chat_id", "topic_id", "text", "sent", ...}``; a real send also
+    includes ``message_id`` and ``date``.
+
+    Raises:
+        NotSetUpError / NotConfiguredError / NotAuthorizedError: store/auth problems.
+        ContactNotFoundError: if ``contact_key`` is not in the address book.
+        ValueError: if ``text`` is empty.
+    """
+    if not cfg.storage_group_id:
+        raise NotSetUpError("no storage group configured — run `tg-notes setup` first")
+    if not text.strip():
+        raise ValueError("refusing to send an empty message")
+
+    client = connect_authorized(cfg)
+    try:
+        store = _resolve_store(client, cfg)
+        contacts_topic = _list_topics(client, store).get(CONTACTS_TOPIC)
+        contact = None
+        if contacts_topic is not None:
+            _, contact = _find_contact(client, store, contacts_topic, contact_key)
+        if contact is None:
+            raise ContactNotFoundError(
+                f"no contact '{contact_key}' — add it with `tg-notes contacts set`"
+            )
+
+        body = _compose_outgoing(text, contact.mention)
+        result = {
+            "contact": contact_key,
+            "chat_id": contact.chat_id,
+            "topic_id": contact.topic_id,
+            "text": body,
+        }
+        if dry_run:
+            result["sent"] = False
+            return result
+
+        target = client.get_entity(_target_from_chat_id(contact.chat_id))
+        message = client.send_message(target, body, reply_to=contact.topic_id)
+        result.update(
+            sent=True, message_id=message.id, date=_message_date_iso(message)
+        )
+        return result
+    finally:
+        client.disconnect()
+
+
+def _compose_outgoing(text: str, mention: str | None) -> str:
+    """Trim the body and prepend the contact's mention on its own line, if set."""
+    body = text.strip()
+    return f"{mention}\n\n{body}" if mention else body
+
+
+def _target_from_chat_id(chat_id: str):
+    """Coerce a stored ``chat_id`` to what ``get_entity`` expects (int id, or @user / me)."""
+    text = str(chat_id).strip()
+    try:
+        return int(text)
+    except ValueError:
+        return text
 
 
 def _find_contact(client, entity, contacts_topic, key):

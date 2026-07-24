@@ -77,3 +77,11 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   `_resolve_store` helper (in `tg_notes.telegram`) and `_handle_store_errors` /
   `_STORE_ERRORS` (in the CLI) deduplicate the not-set-up / not-configured / not-authorized
   handling across `note add`, `notes list`, and `contacts`.
+- Publish (TGN-7): `tg-notes send --contact <key> --text-file <f>` posts compiled text to a
+  contact's chat **as the user** — into a forum topic (`reply_to`) when the contact has a
+  `topic_id`, prepending the contact's `mention` on its own line when set. Text comes from
+  a file or stdin (`-`); `--dry-run` composes and prints the outgoing message (target,
+  topic, text) without sending. New `telegram.send` (+ `_compose_outgoing` /
+  `_target_from_chat_id`, resolving `chat_id` as `-100…` int or `@user` / `me`) and a
+  `ContactNotFoundError` (CLI exit 5); empty text is refused. Tests in `tests/test_send.py`
+  (Telethon mocked). This is the first command that posts outside the storage group.
