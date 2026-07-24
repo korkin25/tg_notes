@@ -540,6 +540,10 @@ def test_secrets_status_command_prints_json(mocker, capsys) -> None:
     mocker.patch("tg_notes.cli.config.load", return_value=config.Config(api_id=1, api_hash="h"))
     mocker.patch("tg_notes.cli.secrets.keyring_available", return_value=True)
     mocker.patch("tg_notes.cli._secret_service_provider", return_value="gnome-keyring-d")
+    mocker.patch(
+        "tg_notes.cli._available_secret_stores",
+        return_value=["gnome-keyring (serves Secret Service)", "keepassxc (running)"],
+    )
 
     rc = cli.main(["secrets", "status"])
 
@@ -550,6 +554,22 @@ def test_secrets_status_command_prints_json(mocker, capsys) -> None:
     assert out["backend"] == "file"
     assert out["keyring_available"] is True
     assert out["secret_service_provider"] == "gnome-keyring-d"
+    assert "keepassxc (running)" in out["available_stores"]
+
+
+def test_available_secret_stores_parses_busctl(mocker) -> None:
+    busctl_out = (
+        "org.freedesktop.secrets  2394 gnome-keyring-d csssr :1.3 x - -\n"
+        "org.keepassxc.KeePassXC.MainWindow 5 keepassxc csssr :1.58 y - -\n"
+        "org.kde.kwalletd6  9 kwalletd6 csssr :1.78 z - -\n"
+    )
+    mocker.patch("tg_notes.cli._busctl_list", return_value=busctl_out)
+
+    stores = cli._available_secret_stores()
+
+    assert "gnome-keyring (serves Secret Service)" in stores
+    assert "keepassxc (running)" in stores
+    assert "kwalletd (KDE) (running)" in stores
 
 
 def test_secrets_migrate_to_keyring(mocker) -> None:

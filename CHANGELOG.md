@@ -9,6 +9,10 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
+- `tg-notes secrets status` now lists the detected secret stores (`available_stores`),
+  each annotated with whether it serves the Secret Service or is merely running —
+  gnome-keyring, KeePassXC, KWallet/ksecretd — so it's clear which vault the keyring
+  backend would actually use and what you could switch to.
 - Pluggable secrets backend (TGN-18): `tg_notes/secrets.py` abstracts where the two real
   secrets — `api_hash` and the Telethon session — live. **file** (default, unchanged): in
   `config.toml` (600) + a `*.session` file. **keyring** (opt-in, `tg-notes[keyring]`): in

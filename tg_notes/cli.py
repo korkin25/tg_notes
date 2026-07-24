@@ -292,8 +292,18 @@ def _send(args: argparse.Namespace) -> int:
     return 0
 
 
-def _secret_service_provider() -> str | None:
-    """Best-effort name of the process owning org.freedesktop.secrets (None if unknown)."""
+#: Known secret-store daemon process names → friendly labels.
+_SECRET_PROVIDERS = {
+    "gnome-keyring-d": "gnome-keyring",
+    "keepassxc": "keepassxc",
+    "kwalletd6": "kwalletd (KDE)",
+    "kwalletd5": "kwalletd (KDE)",
+    "ksecretd": "ksecretd (KDE)",
+}
+
+
+def _busctl_list() -> str | None:
+    """Return `busctl --user list` output, or None if busctl is unavailable."""
     import shutil
 
     # Safe: trusted binary resolved via shutil.which, fixed argv, no shell, no user input.
@@ -303,7 +313,7 @@ def _secret_service_provider() -> str | None:
     if not busctl:
         return None
     try:
-        out = subprocess.run(  # nosec B603
+        return subprocess.run(  # nosec B603
             [busctl, "--user", "list"],
             capture_output=True,
             text=True,
@@ -312,11 +322,41 @@ def _secret_service_provider() -> str | None:
         ).stdout
     except (OSError, subprocess.SubprocessError):
         return None
+
+
+def _secret_service_provider() -> str | None:
+    """Best-effort name of the process owning org.freedesktop.secrets (None if unknown)."""
+    out = _busctl_list()
+    if out is None:
+        return None
     for line in out.splitlines():
         if line.startswith("org.freedesktop.secrets"):
             parts = line.split()
             return parts[2] if len(parts) > 2 else None
     return None
+
+
+def _available_secret_stores() -> list[str]:
+    """List detected secret-store providers, noting which one serves Secret Service."""
+    out = _busctl_list()
+    if out is None:
+        return []
+    ss_owner = None
+    running: dict[str, str] = {}
+    for line in out.splitlines():
+        parts = line.split()
+        if len(parts) < 3:
+            continue
+        name, process = parts[0], parts[2]
+        if name == "org.freedesktop.secrets":
+            ss_owner = process
+        if process in _SECRET_PROVIDERS:
+            running[_SECRET_PROVIDERS[process]] = process
+    stores = []
+    for label, process in running.items():
+        state = "serves Secret Service" if process == ss_owner else "running"
+        stores.append(f"{label} ({state})")
+    return sorted(stores)
 
 
 def _secrets_status(args: argparse.Namespace) -> int:
@@ -329,6 +369,7 @@ def _secrets_status(args: argparse.Namespace) -> int:
         "has_session": backend.has_session(),
         "keyring_available": secrets.keyring_available(),
         "secret_service_provider": _secret_service_provider(),
+        "available_stores": _available_secret_stores(),
     }
     print(json.dumps(status, ensure_ascii=False))
     return 0
