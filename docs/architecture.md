@@ -91,10 +91,16 @@ private 1:1 chats). That limitation is the reason the userbot path is required.
 
 ## Portability
 
-The Skill targets the Agent Skills `SKILL.md` format, so the same skill can be reused
-across compliant agent runtimes; runtime-specific wrappers stay thin because the CLI
-carries the behavior. The exact standard and its adopters are to be verified before the
-portability claim is relied upon.
+The Skill follows the **Agent Skills** open standard (agentskills.io) — a `SKILL.md`
+directory read unchanged by ~30 agent runtimes, including **OpenCode** (which discovers
+`~/.claude/skills/*/SKILL.md` and `.claude/skills/*` natively), Codex, Gemini CLI,
+Cursor, and others. The same skill file is therefore portable as-is; keep the
+frontmatter to the standard core (`name`, `description`) and avoid Claude-only
+extensions. Runtime differences are limited to **distribution**, not the skill itself:
+Claude installs via a plugin marketplace; OpenCode and OpenClaw discover
+`~/.claude/skills` directly; Hermes (Nous Research) is format-compatible but imports
+skills into its own `~/.hermes/` store (and can also call the CLI via its terminal
+toolset / MCP). The CLI stays agent-neutral.
 
 ## Security & Telegram ToS
 

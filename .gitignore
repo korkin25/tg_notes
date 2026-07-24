@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# Virtualenvs
+.venv/
+venv/
+
+# Secrets / auth — never commit
+*.session
+*.session-journal
+.env
+config.toml
+config.json
+
+# Claude Code personal (local) settings — never commit
+.claude/settings.local.json

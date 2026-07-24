@@ -4,6 +4,15 @@ Single list of **open** work on `tg_notes` (statuses ⬜/🟡). Architecture and
 live in `docs/`; stages, current status, and checklists are tracked here. Done tasks
 (✅) move to [CHANGELOG.md](CHANGELOG.md) — see the rule below.
 
+## Current state / next action
+
+- Branch: `feature/tgn-2`.
+- TGN-1 (project scaffolding) — done, in `CHANGELOG.md`.
+- **ACTIVE:** TGN-2 (Telethon client layer + one-time interactive login) — code and tests
+  landed; the full suite is green (`pytest`, Telethon mocked/offline) and `ruff` is clean.
+  Remaining before ✅: confirm an interactive `tg-notes login` against a real account.
+- Next after TGN-2: TGN-3 (`tg-notes setup`).
+
 ## Legend
 
 ⬜ Planned · 🟡 In progress · ✅ Done → moved to `CHANGELOG.md`
@@ -21,17 +30,16 @@ Tasks use local identifiers `TGN-<n>` (no external tracker). Reference them in
 discussions, commits, and PRs. Numbering is mandatory and IDs are never reused.
 Decision items use `TGN-D<n>`.
 
-## Open decisions
+## Current work
 
-| ID | Status | Decision | Details |
+| ID | Status | Task | Details |
 | --- | --- | --- | --- |
-| TGN-D3 | ⬜ | Verify the Agent Skills `SKILL.md` standard | Confirm the spec source and which runtimes actually consume it before relying on cross-agent portability. |
+| TGN-2 | 🟡 | Telegram client layer (TDD) | Client layer (`tg_notes/telegram.py`) + `login`/`whoami` CLI commands implemented; tests green (Telethon mocked) and ruff clean. Pending: verify interactive `login` against a real account before ✅. See Phase 1. |
 
 ## Phase 1 — CLI core (`tg-notes`)
 
 | ID | Status | Task | Details |
 | --- | --- | --- | --- |
-| TGN-1 | ⬜ | Project scaffolding | `pyproject.toml`, package layout (`tg_notes/`), CLI entrypoint, local config loader, `.gitignore` for secrets and `*.session`. |
 | TGN-2 | ⬜ | Telegram client layer | Telethon client with the sync wrapper, one-time interactive login, session handling (`chmod 600`). |
 | TGN-3 | ⬜ | `tg-notes setup` | Create or attach a private forum supergroup; ensure the `contacts` topic and a default notebook; persist the group id in local config; tag the group (fixed title + pinned marker) for recovery (TGN-D2). |
 | TGN-4 | ⬜ | `tg-notes note add` | Append a note to a notebook topic (create the topic on demand); optional hashtags. |
@@ -56,9 +64,10 @@ Decision items use `TGN-D<n>`.
 | TGN-13 | ⬜ | Claude plugin packaging | `.claude-plugin/plugin.json`, skill path, `${CLAUDE_PLUGIN_ROOT}` for bundled paths. |
 | TGN-14 | ⬜ | Git plugin marketplace | `.claude-plugin/marketplace.json`; document `/plugin marketplace add` and install. |
 | TGN-15 | ⬜ | Submit to community marketplace | Validate with `claude plugin validate .`, then submit via the console form. Later. |
+| TGN-17 | ⬜ | Local MCP adapter | Expose the core as a local stdio MCP server (official mcp / FastMCP) alongside the CLI: tools note_add / notes_list / contacts_list / send. Same core, second frontend; broadens reach to GUI clients (Claude Desktop, ChatGPT) that cannot shell out. Session/secrets stay local (stdio only, not hosted). |
 
 ## Phase 4 — Multi-agent portability
 
 | ID | Status | Task | Details |
 | --- | --- | --- | --- |
-| TGN-16 | ⬜ | `AGENTS.md` + other-agent wrappers | Canonical rules in `AGENTS.md`; thin wrappers for opencode / Hermes once TGN-D3 is confirmed. |
+| TGN-16 | ⬜ | `AGENTS.md` + other-agent portability | Add `AGENTS.md` (canonical cross-agent rules). Portability confirmed (was TGN-D3): the same `SKILL.md` is read unchanged by OpenCode and ~30 other Agent Skills runtimes, so no per-agent wrapper is needed for the skill — keep the frontmatter to the standard core (`name`, `description`), avoid Claude-only fields. Remaining: per-agent *distribution* only. OpenCode / OpenClaw discover `~/.claude/skills` from dirs (zero effort); Claude via plugin marketplace; Hermes (Nous Research `hermes-agent`) is agentskills.io-compatible but keeps skills in its own `~/.hermes/` store → import the same `SKILL.md` (no rewrite), and it can also call the `tg-notes` CLI via its terminal toolset / MCP. |

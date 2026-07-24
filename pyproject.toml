@@ -1,0 +1,41 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "tg-notes"
+version = "0.0.0"
+description = "Notes → compile → publish, using a private Telegram group as the store and posting under your own account."
+readme = "README.md"
+requires-python = ">=3.11"
+license = "GPL-3.0-or-later"
+license-files = ["LICENSE"]
+authors = [{ name = "korkin25" }]
+keywords = ["telegram", "notes", "userbot", "telethon", "cli"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Environment :: Console",
+    "Topic :: Communications :: Chat",
+]
+dependencies = [
+    "telethon>=1.44",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "pytest-mock", "ruff", "bandit", "pip-audit", "build"]
+
+[project.urls]
+Homepage = "https://github.com/korkin25/tg_notes"
+Repository = "https://github.com/korkin25/tg_notes"
+
+[project.scripts]
+tg-notes = "tg_notes.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["tg_notes"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py311"
