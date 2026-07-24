@@ -99,3 +99,10 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   notebook, optional hashtags. Capture only — it never sends. Verified end-to-end against
   the real account (both modes filed and read back). Succeeds the retired local `report`
   skill, now Telegram-native.
+- Compile & send skill (TGN-10): `skills/tg-notes-send/SKILL.md` — reads notes
+  (`tg-notes notes list`), rewrites them per the target contact's `style`, previews with
+  `tg-notes send --dry-run`, **always shows a draft and requires an explicit confirmation**
+  (the message goes out under the user's own account), then `tg-notes send`. Contacts are
+  the single source of chat/topic/mention/style. Verified end-to-end against the real
+  account (dry-run → confirmed send to Saved Messages → read back; unknown-contact exit 5).
+  Succeeds the retired local `report-send` skill, now driven by the `tg-notes` CLI.
