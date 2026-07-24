@@ -111,6 +111,7 @@ tg-notes notebooks list
 # a StringSession). `secrets status` shows the active backend and which provider answers.
 pipx install "tg-notes[keyring]"
 tg-notes secrets status
+tg-notes secrets doctor                    # diagnose the store + get setup/migration steps
 tg-notes secrets migrate --to keyring     # or: --to file to move back
 
 # Log in on its own (setup calls this for you; useful to re-authorize a new device).

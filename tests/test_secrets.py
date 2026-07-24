@@ -76,6 +76,39 @@ def test_keyring_available_false_on_error(mocker) -> None:
     assert secrets.keyring_available() is False
 
 
+def test_keyring_probe_ok(mocker) -> None:
+    mocker.patch("keyring.set_password")
+    mocker.patch("keyring.get_password", return_value="1")
+    mocker.patch("keyring.delete_password")
+    assert secrets.keyring_probe() == (True, None)
+
+
+def test_keyring_probe_classifies_no_collection(mocker) -> None:
+    mocker.patch(
+        "keyring.set_password",
+        side_effect=Exception("Failed to create the collection: Prompt dismissed."),
+    )
+    assert secrets.keyring_probe() == (False, "no-collection")
+
+
+def test_keyring_probe_classifies_locked(mocker) -> None:
+    mocker.patch("keyring.set_password")
+    mocker.patch("keyring.get_password", side_effect=Exception("Item is locked!"))
+    assert secrets.keyring_probe() == (False, "locked")
+
+
+def test_keyring_probe_other_error(mocker) -> None:
+    mocker.patch("keyring.set_password", side_effect=RuntimeError("boom"))
+    assert secrets.keyring_probe() == (False, "error:RuntimeError")
+
+
+def test_keyring_probe_readback_mismatch(mocker) -> None:
+    mocker.patch("keyring.set_password")
+    mocker.patch("keyring.get_password", return_value="WRONG")
+    mocker.patch("keyring.delete_password")
+    assert secrets.keyring_probe() == (False, "error:readback-mismatch")
+
+
 # --- migration --------------------------------------------------------------------
 
 
@@ -113,6 +146,18 @@ def test_migrate_to_keyring_aborts_if_vault_readback_fails(mocker, tmp_path) -> 
         secrets.migrate_to_keyring(cfg)
 
     assert session_file.exists()  # not removed on failure
+
+
+def test_migrate_to_keyring_refuses_empty_session(mocker, tmp_path) -> None:
+    # empty session export = not logged in; must not overwrite the vault with it
+    mocker.patch("tg_notes.secrets._export_string_session", return_value="")
+    setp = mocker.patch("keyring.set_password")
+    cfg = Config(api_id=1, api_hash="h", session_path=str(tmp_path / "s.session"))
+
+    with pytest.raises(RuntimeError):
+        secrets.migrate_to_keyring(cfg)
+
+    setp.assert_not_called()  # nothing written to the vault
 
 
 def test_migrate_to_file_restores_cfg(mocker, tmp_path) -> None:

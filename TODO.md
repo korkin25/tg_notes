@@ -26,7 +26,7 @@ live in `docs/`; stages, current status, and checklists are tracked here. Done t
   unchanged-content bug).
 - TGN-18 done: pluggable secrets backend (`tg_notes/secrets.py`) — file (default) +
   opt-in keyring (Secret Service; session as `StringSession`), `tg-notes secrets
-  status|migrate`. Verified end-to-end on an isolated session copy (file → keyring →
+  status|doctor|migrate`. Verified end-to-end on an isolated session copy (file → keyring →
   `whoami` from the vault → back to file); the real file default was left untouched.
 - **All planned work is DONE.** The only open item is **TGN-15** (submit the plugin to a
   community marketplace) — a user web action, optional; the repo side already passes

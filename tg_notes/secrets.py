@@ -117,19 +117,36 @@ def get_backend(cfg: Config):
     return FileBackend(cfg)
 
 
-def keyring_available() -> bool:
-    """True if ``keyring`` imports and the Secret Service round-trips a probe secret."""
+def keyring_probe() -> tuple[bool, str | None]:
+    """Round-trip a probe secret through the keyring; classify any failure.
+
+    Returns ``(ok, kind)``. ``kind`` is a short classifier so callers can recommend a fix:
+    ``"not-installed"`` (the ``keyring`` extra is missing), ``"no-collection"`` (no default
+    collection / no exposed group — the vault tried to create one and the prompt was
+    dismissed), ``"locked"`` (per-access confirmation is blocking reads), or
+    ``"error:<Type>"`` for anything else. ``kind`` is ``None`` on success.
+    """
     try:
         import keyring
     except ImportError:
-        return False
+        return False, "not-installed"
     try:
         keyring.set_password(KEYRING_SERVICE, "_probe", "1")
         ok = keyring.get_password(KEYRING_SERVICE, "_probe") == "1"
         keyring.delete_password(KEYRING_SERVICE, "_probe")
-        return ok
-    except Exception:  # noqa: BLE001 — any backend failure means "not usable"
-        return False
+        return (True, None) if ok else (False, "error:readback-mismatch")
+    except Exception as exc:  # noqa: BLE001 — classify any backend failure
+        msg = str(exc).lower()
+        if "prompt dismissed" in msg or "create the collection" in msg:
+            return False, "no-collection"
+        if "locked" in msg:
+            return False, "locked"
+        return False, f"error:{type(exc).__name__}"
+
+
+def keyring_available() -> bool:
+    """True if ``keyring`` imports and the Secret Service round-trips a probe secret."""
+    return keyring_probe()[0]
 
 
 # --- migration between backends --------------------------------------------------
@@ -174,6 +191,8 @@ def migrate_to_keyring(cfg: Config) -> None:
     if not cfg.api_hash:
         raise ValueError("no api_hash in config to migrate")
     session_str = _export_string_session(cfg)
+    if not session_str:  # empty = no authorized session; never overwrite the vault with it
+        raise RuntimeError("no authorized session to migrate — run `tg-notes login` first")
 
     keyring.set_password(KEYRING_SERVICE, _KEY_API_HASH, cfg.api_hash)
     keyring.set_password(KEYRING_SERVICE, _KEY_SESSION, session_str)
