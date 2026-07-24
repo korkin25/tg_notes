@@ -93,10 +93,44 @@ Keep docs in lockstep with the code, **in the same change** — never wait to be
 - After a release (full CI green) Claude re-runs group-(b); any remaining group-(c)
   tests → methodology handed to the user.
 
+## Build, artifacts & CI (apply without being asked)
+
+CI (GitHub Actions) is the single release pipeline. Every push/PR runs the full
+gate set; a version tag `v*` publishes the release artifacts. There is no GitLab
+here — do not port GitLab CI / ArgoCD patterns from the BNPL platform.
+
+**Gates (every push/PR):**
+
+- Tests: ruff, pytest (3.11 & 3.12).
+- Code quality: radon/xenon (cyclomatic complexity + maintainability index).
+- Security: bandit, pip-audit, semgrep (SAST, isolated via `pipx run`).
+- IaC/config: checkov + hadolint (Dockerfile) + trivy (config & image).
+- Functional: boot the built image's `tg-notes-mcp-http` and verify it serves.
+- Newly-added scanners start in report mode (soft-fail / `continue-on-error`);
+  tighten to hard gates once the baseline is clean — never silently drop one.
+
+**Published artifacts — all to the GitHub Container Registry (GHCR):**
+
+- Python sdist+wheel → PyPI (pipx-installable) on a tag (`release.yml`, trusted publishing).
+- Docker image → `ghcr.io/<owner>/tg-notes` — built every push, pushed on `main`
+  (`:main`, `:sha-<sha>`) and tags (`:<version>`, `:latest`).
+- Helm chart (OCI) → `ghcr.io/<owner>/charts/tg-notes` — linted every push, pushed on tags.
+
+**Local dev:** `Dockerfile` (multi-stage, non-root uid 10000) + `docker-compose.yml`
+run the stack locally; the Helm `chart/` deploys it (Deployment + config PVC).
+Runtime env vars are documented in `docs/configuration.md`; the minimal CI set lives
+in the GitHub Actions environment `ci-functional`.
+
+**Voice/STT model:** never baked into the image. The Helm chart provisions a PVC
+for the Whisper model cache (fetched on first use or preloaded by devops); the
+default image stays lean. Identical pattern in `jira_nano` — always document it in
+`chart/README.md`.
+
 ## Development workflow (autonomous — apply without being asked)
 
 This project is developed by an AI agent under continuous, autonomous iteration.
 
+- Continuous development: while open bugs or features remain (see `Features.md` / `TODO.md`), keep implementing autonomously through the per-task lifecycle below. Consult the user ONLY for architectural decisions — topology, data model, public API/contract, deployment shape, dependency/stack choices.
 - Test-driven: for every agreed feature write the tests FIRST (they must fail), then implement until green. No feature code without a test.
 - Feature branches: work on feature/<task-id>-<slug> off main; merge to main only when the full suite is green.
 - Commit periodically in small logical units, Conventional Commits (feat:, fix:, test:, docs:, chore:, ci:). Never add a Co-Authored-By trailer. Push to `origin` after every commit.

@@ -7,6 +7,24 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Added
+
+- **TGN-24 — `tg-notes-mcp-http`.** New console entry point serving the MCP server over
+  remote **streamable-HTTP** (`build_server(host, port)` + `run(transport="streamable-http")`),
+  host/port from `TG_NOTES_MCP_HOST`/`TG_NOTES_MCP_PORT` (default `0.0.0.0:8000`). Lets the
+  MCP server run as a networked Deployment instead of only a local stdio subprocess. TDD.
+- **TGN-23 — container image, Helm chart & GHCR publishing.** Multi-stage `Dockerfile`
+  (non-root uid 10000; default serves `tg-notes-mcp-http` on :8000), `docker-compose.yml`
+  (lean) + `docker-compose.voice.yml` (voice-enabled, non-CI), and a Helm `chart/` adapted
+  from the BNPL "application" chart — single-replica Deployment (userbot = one session),
+  config PVC (Telethon session), voice-model PVC, TCP probes, optional daily-report CronJob.
+  The Whisper voice model is kept off the image (chart PVC, fetched on first use or
+  preloaded), documented in `chart/README.md`. CI (GitHub Actions) gains a security & quality
+  suite — checkov, hadolint, trivy, semgrep, radon/xenon — a functional MCP-HTTP boot job, and
+  publishes the image to `ghcr.io/korkin25/tg-notes` and the OCI chart to
+  `ghcr.io/korkin25/charts/tg-notes`. Runtime env vars documented in `docs/configuration.md`;
+  a minimal CI env set lives in the GitHub Actions environment `ci-functional`.
+
 ### Changed
 
 - **TGN-22 — governance docs mirrored with `jira_nano`.** `CLAUDE.md` gains explicit,

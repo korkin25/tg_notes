@@ -6,6 +6,13 @@ live in `docs/`; stages, current status, and checklists are tracked here. Done t
 
 ## Current state / next action
 
+- **TGN-23 + TGN-24 done** (2026-07-25): containerisation + GHCR + CI suite. Added
+  `tg-notes-mcp-http` (streamable-HTTP, TDD), multi-stage `Dockerfile`, `docker-compose.yml`
+  + `docker-compose.voice.yml`, Helm `chart/` (Deployment + config/voice PVCs, optional
+  daily-report CronJob), `docs/configuration.md`, and a full CI suite (checkov/hadolint/
+  trivy/semgrep/radon-xenon + functional MCP-HTTP job) that pushes image & OCI chart to GHCR.
+  `helm lint`/`template`, Docker build, MCP-HTTP boot, full pytest (324) all validated. In
+  `CHANGELOG.md` (`[Unreleased]`).
 - **TGN-22 done** (2026-07-25): governance docs mirrored with `jira_nano` — `CLAUDE.md`
   now carries the Documentation-sync table, the Testing policy (groups a/b/c, TDD-first,
   release gate) and the MANDATORY Per-task lifecycle; features moved to root `Features.md`;
