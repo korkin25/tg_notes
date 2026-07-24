@@ -140,6 +140,25 @@ def _whoami(args: argparse.Namespace) -> int:
     return 0
 
 
+def _handle_store_errors(exc: Exception) -> int:
+    """Map a store-access exception to a user message and exit code (4 / 1 / 3)."""
+    if isinstance(exc, telegram.NotSetUpError):
+        sys.stderr.write(f"{exc}\n")
+        return 4
+    if isinstance(exc, telegram.NotConfiguredError):
+        _instruct_configure()
+        return 1
+    sys.stderr.write("not logged in — run `tg-notes login` (or `tg-notes setup`) first\n")
+    return 3
+
+
+_STORE_ERRORS = (
+    telegram.NotSetUpError,
+    telegram.NotConfiguredError,
+    telegram.NotAuthorizedError,
+)
+
+
 def _read_text_arg(path: str) -> str:
     """Read note text from a file, or from stdin when ``path`` is ``-``."""
     if path == "-":
@@ -159,17 +178,8 @@ def _note_add(args: argparse.Namespace) -> int:
         result = telegram.note_add(
             cfg, notebook=args.notebook, text=text, hashtags=args.hashtag
         )
-    except telegram.NotSetUpError as exc:
-        sys.stderr.write(f"{exc}\n")
-        return 4
-    except telegram.NotConfiguredError:
-        _instruct_configure()
-        return 1
-    except telegram.NotAuthorizedError:
-        sys.stderr.write(
-            "not logged in — run `tg-notes login` (or `tg-notes setup`) first\n"
-        )
-        return 3
+    except _STORE_ERRORS as exc:
+        return _handle_store_errors(exc)
     except ValueError as exc:
         sys.stderr.write(f"{exc}\n")
         return 1
@@ -209,18 +219,53 @@ def _notes_list(args: argparse.Namespace) -> int:
             return 1
     try:
         notes = telegram.notes_list(cfg, notebook=args.notebook, since=since)
-    except telegram.NotSetUpError as exc:
-        sys.stderr.write(f"{exc}\n")
-        return 4
-    except telegram.NotConfiguredError:
-        _instruct_configure()
-        return 1
-    except telegram.NotAuthorizedError:
-        sys.stderr.write(
-            "not logged in — run `tg-notes login` (or `tg-notes setup`) first\n"
-        )
-        return 3
+    except _STORE_ERRORS as exc:
+        return _handle_store_errors(exc)
     print(json.dumps(notes, ensure_ascii=False))
+    return 0
+
+
+def _contacts_list(args: argparse.Namespace) -> int:
+    """Print the address book as JSON (TGN-6)."""
+    cfg = config.load()
+    try:
+        items = telegram.contacts_list(cfg)
+    except _STORE_ERRORS as exc:
+        return _handle_store_errors(exc)
+    print(json.dumps(items, ensure_ascii=False))
+    return 0
+
+
+def _contacts_set(args: argparse.Namespace) -> int:
+    """Create or update a contact (TGN-6)."""
+    cfg = config.load()
+    try:
+        result = telegram.contacts_set(
+            cfg,
+            args.key,
+            chat_id=args.chat_id,
+            name=args.name,
+            topic_id=args.topic_id,
+            mention=args.mention,
+            style=args.style,
+        )
+    except _STORE_ERRORS as exc:
+        return _handle_store_errors(exc)
+    except ValueError as exc:
+        sys.stderr.write(f"{exc}\n")
+        return 1
+    print(json.dumps(result, ensure_ascii=False))
+    return 0
+
+
+def _contacts_remove(args: argparse.Namespace) -> int:
+    """Remove a contact by key (TGN-6)."""
+    cfg = config.load()
+    try:
+        result = telegram.contacts_remove(cfg, args.key)
+    except _STORE_ERRORS as exc:
+        return _handle_store_errors(exc)
+    print(json.dumps(result, ensure_ascii=False))
     return 0
 
 
@@ -279,13 +324,18 @@ def build_parser() -> argparse.ArgumentParser:
     # contacts (TGN-6)
     p_contacts = sub.add_parser("contacts", help="address book")
     contacts_sub = p_contacts.add_subparsers(dest="subcommand", metavar="<subcommand>", required=True)
-    contacts_sub.add_parser("list", help="list contacts").set_defaults(func=_todo("TGN-6"))
+    contacts_sub.add_parser("list", help="list contacts").set_defaults(func=_contacts_list)
     p_c_set = contacts_sub.add_parser("set", help="add or update a contact")
     p_c_set.add_argument("key", help="contact key")
-    p_c_set.set_defaults(func=_todo("TGN-6"))
+    p_c_set.add_argument("--chat-id", dest="chat_id", help="-100… | @username | me")
+    p_c_set.add_argument("--name", help="human name (never sent)")
+    p_c_set.add_argument("--topic-id", dest="topic_id", type=int, help="forum topic id")
+    p_c_set.add_argument("--mention", help="@username to mention when posting")
+    p_c_set.add_argument("--style", help="prompt: how to compile notes for this recipient")
+    p_c_set.set_defaults(func=_contacts_set)
     p_c_rm = contacts_sub.add_parser("remove", help="remove a contact")
     p_c_rm.add_argument("key", help="contact key")
-    p_c_rm.set_defaults(func=_todo("TGN-6"))
+    p_c_rm.set_defaults(func=_contacts_remove)
 
     # send (TGN-7)
     p_send = sub.add_parser("send", help="publish a compiled note to a contact")

@@ -17,6 +17,7 @@ from telethon.tl.functions.messages import (
     GetForumTopicsRequest,
 )
 
+from . import contacts as contacts_mod
 from .config import Config
 
 #: Fixed title for the storage supergroup — part of the recovery tag (docs/architecture).
@@ -169,12 +170,7 @@ def note_add(
 
     client = connect_authorized(cfg)
     try:
-        try:
-            entity = client.get_entity(cfg.storage_group_id)
-        except (ValueError, TypeError) as exc:
-            raise NotSetUpError(
-                "configured storage group not found — run `tg-notes setup`"
-            ) from exc
+        entity = _resolve_store(client, cfg)
         topic_id = _ensure_topics(client, entity, [notebook])[notebook]
         message = client.send_message(entity, body, reply_to=topic_id)
         return {
@@ -204,12 +200,7 @@ def notes_list(cfg: Config, notebook: str, since: object | None = None) -> list[
         )
     client = connect_authorized(cfg)
     try:
-        try:
-            entity = client.get_entity(cfg.storage_group_id)
-        except (ValueError, TypeError) as exc:
-            raise NotSetUpError(
-                "configured storage group not found — run `tg-notes setup`"
-            ) from exc
+        entity = _resolve_store(client, cfg)
         topic_id = _list_topics(client, entity).get(notebook)
         if topic_id is None:
             return []  # notebook never created → no notes, and nothing to fetch
@@ -230,6 +221,119 @@ def notes_list(cfg: Config, notebook: str, since: object | None = None) -> list[
         return notes
     finally:
         client.disconnect()
+
+
+def contacts_list(cfg: Config) -> list[dict]:
+    """Return the address book (one entry per contact message), sorted by key (TGN-6)."""
+    if not cfg.storage_group_id:
+        raise NotSetUpError("no storage group configured — run `tg-notes setup` first")
+    client = connect_authorized(cfg)
+    try:
+        entity = _resolve_store(client, cfg)
+        topic_id = _list_topics(client, entity).get(CONTACTS_TOPIC)
+        if topic_id is None:
+            return []
+        found = []
+        for message in client.iter_messages(entity, reply_to=topic_id):
+            contact = contacts_mod.parse(message.text or "")
+            if contact is not None:
+                found.append(contact.to_dict())
+        found.sort(key=lambda entry: entry["key"])
+        return found
+    finally:
+        client.disconnect()
+
+
+def contacts_set(
+    cfg: Config,
+    key: str,
+    *,
+    chat_id: str | None = None,
+    name: str | None = None,
+    topic_id: int | None = None,
+    mention: str | None = None,
+    style: str | None = None,
+) -> dict:
+    """Create or update a contact (TGN-6).
+
+    Only the provided fields override an existing record; a brand-new contact needs a
+    ``chat_id``. Returns the stored contact plus ``"created"`` (True when newly added).
+    """
+    if not cfg.storage_group_id:
+        raise NotSetUpError("no storage group configured — run `tg-notes setup` first")
+    client = connect_authorized(cfg)
+    try:
+        entity = _resolve_store(client, cfg)
+        contacts_topic = _ensure_topics(client, entity, [CONTACTS_TOPIC])[CONTACTS_TOPIC]
+        message, existing = _find_contact(client, entity, contacts_topic, key)
+        merged = _merge_contact(
+            key, existing, chat_id=chat_id, name=name, topic_id=topic_id,
+            mention=mention, style=style,
+        )
+        text = contacts_mod.serialize(merged)
+        if message is not None:
+            client.edit_message(entity, message.id, text)
+            created = False
+        else:
+            client.send_message(entity, text, reply_to=contacts_topic)
+            created = True
+        return {**merged.to_dict(), "created": created}
+    finally:
+        client.disconnect()
+
+
+def contacts_remove(cfg: Config, key: str) -> dict:
+    """Delete a contact's message. Returns ``{"key", "removed"}`` (TGN-6)."""
+    if not cfg.storage_group_id:
+        raise NotSetUpError("no storage group configured — run `tg-notes setup` first")
+    client = connect_authorized(cfg)
+    try:
+        entity = _resolve_store(client, cfg)
+        contacts_topic = _list_topics(client, entity).get(CONTACTS_TOPIC)
+        if contacts_topic is None:
+            return {"key": key, "removed": False}
+        message, _ = _find_contact(client, entity, contacts_topic, key)
+        if message is None:
+            return {"key": key, "removed": False}
+        client.delete_messages(entity, [message.id])
+        return {"key": key, "removed": True}
+    finally:
+        client.disconnect()
+
+
+def _find_contact(client, entity, contacts_topic, key):
+    """Return ``(message, Contact)`` for ``key`` in the contacts topic, or ``(None, None)``."""
+    for message in client.iter_messages(entity, reply_to=contacts_topic):
+        contact = contacts_mod.parse(message.text or "")
+        if contact is not None and contact.key == key:
+            return message, contact
+    return None, None
+
+
+def _merge_contact(key, existing, *, chat_id, name, topic_id, mention, style):
+    """Overlay the provided fields onto ``existing`` (or a blank record) for ``key``."""
+    base = existing or contacts_mod.Contact(key=key)
+    merged = contacts_mod.Contact(
+        key=key,
+        name=name if name is not None else base.name,
+        chat_id=chat_id if chat_id is not None else base.chat_id,
+        topic_id=topic_id if topic_id is not None else base.topic_id,
+        mention=mention if mention is not None else base.mention,
+        style=style if style is not None else base.style,
+    )
+    if not merged.chat_id:
+        raise ValueError("a new contact needs --chat-id (where to send)")
+    return merged
+
+
+def _resolve_store(client: TelegramClient, cfg: Config) -> object:
+    """Resolve the configured storage group, or raise :class:`NotSetUpError`."""
+    try:
+        return client.get_entity(cfg.storage_group_id)
+    except (ValueError, TypeError) as exc:
+        raise NotSetUpError(
+            "configured storage group not found — run `tg-notes setup`"
+        ) from exc
 
 
 def _compose_note(text: str, hashtags: list[str] | None = None) -> str:

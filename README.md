@@ -64,6 +64,13 @@ echo "quick note" | tg-notes note add --text-file -
 # (today | HH:MM | YYYY-MM-DD | ISO datetime; local when no offset). Feeds compilation.
 tg-notes notes list --notebook daily --since today
 
+# Address book (one message per contact in the `contacts` topic). `set` creates or
+# updates (only the given fields change; a new contact needs --chat-id). List/remove
+# print JSON. chat_id is -100… | @username | me.
+tg-notes contacts set boss --chat-id @alice --name Alice --style "verbatim technical"
+tg-notes contacts list
+tg-notes contacts remove boss
+
 # Log in on its own (setup calls this for you; useful to re-authorize a new device).
 # Requires api_id/api_hash in local config; writes a chmod-600 session file.
 tg-notes login

@@ -6,16 +6,17 @@ live in `docs/`; stages, current status, and checklists are tracked here. Done t
 
 ## Current state / next action
 
-- Branch: `main` (feature/tgn-5 merged).
-- TGN-1..TGN-5 — done, in `CHANGELOG.md`. TGN-5 verified end-to-end on the real account
-  (@korkin25): posted 3 daily notes, listed them oldest-first with full text+hashtags;
-  `--since` boundary (inclusive), `today`, future date (`[]`), unknown/empty notebook
-  (`[]`), invalid `--since` (1), and not-set-up (4) / not-configured (1) / not-authorized
-  (3) all confirmed. Test notes cleaned up afterwards.
+- Branch: `main` (feature/tgn-6 merged).
+- TGN-1..TGN-6 — done, in `CHANGELOG.md`. TGN-6 verified end-to-end on the real account
+  (@korkin25): `set` (new + partial-update merge), `list` (sorted, colons preserved),
+  `remove` (found + absent no-op), missing-`--chat-id` (1), and not-set-up (4) /
+  not-configured (1) / not-authorized (3) all confirmed; note add / notes list
+  regression-checked after the `_resolve_store` refactor. Test contacts cleaned up.
 - Logged TGN-18 (pluggable secrets backend — Secret Service/keyring incl. KeePassXC,
   `StringSession` in the vault) as later work; the file backend stays the default.
-- **NEXT:** TGN-6 (contacts address book) — start on a new `feature/tgn-6` branch (TDD):
-  `contacts list/set/remove` over the message-per-contact schema in the `contacts` topic.
+- **NEXT:** TGN-7 (`tg-notes send`) — start on a new `feature/tgn-7` branch (TDD): post
+  given text to a contact's chat/topic (resolve `chat_id`; optional mention; forum topic
+  via `reply_to`). This is the first command that posts *outside* the storage group.
 
 ## Legend
 
@@ -42,7 +43,6 @@ _None in progress. Next up: TGN-5 (see Phase 1)._
 
 | ID | Status | Task | Details |
 | --- | --- | --- | --- |
-| TGN-6 | ⬜ | Contacts (address book) | `contacts list/set/remove`; the message-per-contact schema in the `contacts` topic. |
 | TGN-7 | ⬜ | `tg-notes send` | Post given text to a contact's chat/topic; optional mention; forum topic via `reply_to`. |
 | TGN-8 | ⬜ | `tg-notes notebooks list` | List the notebook topics of the storage group. |
 | TGN-18 | ⬜ | Pluggable secrets backend (later) | Abstract secret storage behind a backend interface: **file** (default — `config.toml` 600 + `*.session`) and an **opt-in Secret Service** backend via `keyring`/`secretstorage`, auto-detected when a provider is present (KeePassXC, gnome-keyring, KWallet; macOS Keychain / Windows Cred Manager). Store the Telethon session as a `StringSession` in the vault (highest-value secret) instead of a file. Must keep unattended runs working (scheduled daily-report): the default path never requires an interactive master-password unlock. Deferred by agreement. |
