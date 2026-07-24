@@ -74,18 +74,25 @@ def test_setup_command_passes_custom_notebook(mocker) -> None:
     setup.assert_called_once_with(cfg, notebook="weekly")
 
 
-def test_setup_command_not_configured_returns_1(mocker) -> None:
+def test_setup_command_not_configured_instructs_and_returns_1(mocker, capsys) -> None:
     mocker.patch("tg_notes.cli.config.load", return_value=config.Config())
     mocker.patch(
         "tg_notes.cli.telegram.setup", side_effect=telegram.NotConfiguredError("nope")
     )
     save = mocker.patch("tg_notes.cli.config.save")
 
-    assert cli.main(["setup"]) == 1
+    rc = cli.main(["setup"])
+
+    assert rc == 1
     save.assert_not_called()  # nothing to persist on the failure path
+    err = capsys.readouterr().err
+    # setup self-instructs: where to get credentials, where to put them, what to run next
+    assert "my.telegram.org" in err
+    assert str(config.config_path()) in err
+    assert "tg-notes login" in err
 
 
-def test_setup_command_not_authorized_returns_3(mocker) -> None:
+def test_setup_command_not_authorized_instructs_and_returns_3(mocker, capsys) -> None:
     mocker.patch(
         "tg_notes.cli.config.load", return_value=config.Config(api_id=1, api_hash="h")
     )
@@ -94,5 +101,9 @@ def test_setup_command_not_authorized_returns_3(mocker) -> None:
     )
     save = mocker.patch("tg_notes.cli.config.save")
 
-    assert cli.main(["setup"]) == 3
+    rc = cli.main(["setup"])
+
+    assert rc == 3
     save.assert_not_called()
+    err = capsys.readouterr().err
+    assert "tg-notes login" in err  # tells the user exactly how to authorize

@@ -45,20 +45,50 @@ def _login(args: argparse.Namespace) -> int:
 
 
 def _setup(args: argparse.Namespace) -> int:
-    """Provision/attach the storage group, then persist its id to local config."""
+    """Provision/attach the storage group, then persist its id to local config.
+
+    When Telegram is not yet usable, ``setup`` does not just fail — it prints the exact
+    steps to get there (get credentials, where to save them, run ``login``, re-run).
+    """
     cfg = config.load()
     try:
         result = telegram.setup(cfg, notebook=args.notebook)
-    except telegram.NotConfiguredError as exc:
-        sys.stderr.write(f"{exc}\n")
+    except telegram.NotConfiguredError:
+        _instruct_configure()
         return 1
-    except telegram.NotAuthorizedError as exc:
-        sys.stderr.write(f"{exc}\n")
+    except telegram.NotAuthorizedError:
+        _instruct_login()
         return 3
     cfg.storage_group_id = result["group_id"]
     config.save(cfg)
     print(json.dumps(result, ensure_ascii=False))
     return 0
+
+
+def _instruct_configure() -> None:
+    """Explain how to supply Telegram credentials, then get logged in."""
+    path = config.config_path()
+    sys.stderr.write(
+        "tg-notes is not configured yet — your Telegram api_id/api_hash are missing.\n"
+        "\n"
+        "To get set up:\n"
+        "  1. Get an api_id and api_hash at https://my.telegram.org\n"
+        "     (log in → 'API development tools' → create an app).\n"
+        f"  2. Save them to {path}:\n"
+        "         api_id = 1234567\n"
+        '         api_hash = "your_api_hash"\n'
+        f"     Then keep the secrets private: chmod 600 {path}\n"
+        "  3. Run `tg-notes login` to authorize this device (phone → code → 2FA).\n"
+        "  4. Run `tg-notes setup` again.\n"
+    )
+
+
+def _instruct_login() -> None:
+    """Explain that credentials exist but the device still needs to log in."""
+    sys.stderr.write(
+        "tg-notes is configured, but this device is not logged in.\n"
+        "Run `tg-notes login` (phone → code → 2FA), then `tg-notes setup` again.\n"
+    )
 
 
 def _whoami(args: argparse.Namespace) -> int:

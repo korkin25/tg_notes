@@ -56,7 +56,8 @@ tg-notes whoami
 
 # One-time: create (or attach to) the private forum supergroup that stores your notes.
 # Ensures the `contacts` topic and a default `daily` notebook, pins a recovery marker,
-# and saves the group id to local config. Idempotent — safe to re-run.
+# and saves the group id to local config. Idempotent — safe to re-run. If Telegram
+# isn't configured or logged in yet, `setup` prints the exact steps to get there.
 tg-notes setup [--notebook <name>]
 ```
 
