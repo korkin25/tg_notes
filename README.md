@@ -27,7 +27,7 @@ you, into a real chat or forum topic. Daily work reports are one built-in preset
 - Post to a plain chat or a specific forum topic; optional mention.
 - Daily work-report preset.
 
-Full list: [docs/features.md](docs/features.md).
+Full list: [Features.md](Features.md).
 
 ## How it works
 

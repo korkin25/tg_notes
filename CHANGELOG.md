@@ -7,6 +7,18 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Changed
+
+- **TGN-22 — governance docs mirrored with `jira_nano`.** `CLAUDE.md` gains explicit,
+  apply-without-being-asked sections: **Documentation sync** (trigger→update table),
+  **Testing policy** (three test groups a/b/c, TDD-first, CI log analysis even on green,
+  release gate), a **Feature backlog** rule (root `Features.md`), and a MANDATORY
+  **Per-task lifecycle** (log → backlog → test-plan → branch → TDD → verify → record → MR).
+  The features doc moved from `docs/features.md` to the root **`Features.md`** (numbered
+  backlog: Current / Planned / Brainstorm / Delivered). New `docs/tests.md` (per-feature
+  test catalog) and `auto-tests/` (group-a/b/c scripts + methodologies) scaffolds added.
+  Stale "planning — nothing implemented" status lines corrected to "released".
+
 ## [0.1.2] - 2026-07-25
 
 ### Added

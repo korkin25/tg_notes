@@ -6,6 +6,10 @@ live in `docs/`; stages, current status, and checklists are tracked here. Done t
 
 ## Current state / next action
 
+- **TGN-22 done** (2026-07-25): governance docs mirrored with `jira_nano` — `CLAUDE.md`
+  now carries the Documentation-sync table, the Testing policy (groups a/b/c, TDD-first,
+  release gate) and the MANDATORY Per-task lifecycle; features moved to root `Features.md`;
+  `docs/tests.md` + `auto-tests/` scaffolds added. In `CHANGELOG.md` (`[Unreleased]`).
 - **Release `0.1.2` cut** (2026-07-25): whisper engine auto-fetch on first use
   (`transcribe.ensure_engine`, best-effort, once per process, `pipx inject` vs `pip install`
   by context; disable with `transcriber_autoinstall = false`) + the `scripts/sandbox.py`
