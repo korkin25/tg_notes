@@ -269,6 +269,28 @@ def _contacts_remove(args: argparse.Namespace) -> int:
     return 0
 
 
+def _send(args: argparse.Namespace) -> int:
+    """Publish compiled text to a contact's chat/topic (TGN-7)."""
+    cfg = config.load()
+    try:
+        text = _read_text_arg(args.text_file)
+    except OSError as exc:
+        sys.stderr.write(f"cannot read text from {args.text_file}: {exc}\n")
+        return 1
+    try:
+        result = telegram.send(cfg, args.contact, text, dry_run=args.dry_run)
+    except _STORE_ERRORS as exc:
+        return _handle_store_errors(exc)
+    except telegram.ContactNotFoundError as exc:
+        sys.stderr.write(f"{exc}\n")
+        return 5
+    except ValueError as exc:
+        sys.stderr.write(f"{exc}\n")
+        return 1
+    print(json.dumps(result, ensure_ascii=False))
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="tg-notes",
@@ -340,8 +362,15 @@ def build_parser() -> argparse.ArgumentParser:
     # send (TGN-7)
     p_send = sub.add_parser("send", help="publish a compiled note to a contact")
     p_send.add_argument("--contact", required=True, help="contact key from the address book")
-    p_send.add_argument("--text-file", required=True, help="file with the compiled text")
-    p_send.set_defaults(func=_todo("TGN-7"))
+    p_send.add_argument(
+        "--text-file", required=True, help="file with the compiled text (use - for stdin)"
+    )
+    p_send.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="compose and print what would be sent, without sending",
+    )
+    p_send.set_defaults(func=_send)
 
     # notebooks list (TGN-8)
     p_nb = sub.add_parser("notebooks", help="notebooks")

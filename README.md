@@ -71,6 +71,12 @@ tg-notes contacts set boss --chat-id @alice --name Alice --style "verbatim techn
 tg-notes contacts list
 tg-notes contacts remove boss
 
+# Publish compiled text to a contact's chat, as you — into a forum topic when the contact
+# has a topic_id, prepending its mention if set. Text from a file or stdin (-). Use
+# --dry-run to print exactly what would be sent without sending.
+tg-notes send --contact boss --text-file report.txt
+echo "..." | tg-notes send --contact boss --text-file - --dry-run
+
 # Log in on its own (setup calls this for you; useful to re-authorize a new device).
 # Requires api_id/api_hash in local config; writes a chmod-600 session file.
 tg-notes login
