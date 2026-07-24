@@ -69,10 +69,16 @@ Editing a contact means editing its message — which is also possible from the 
 `tg-notes setup` drives first-run onboarding so no manual config editing is needed: if
 `api_id`/`api_hash` are missing it prompts for them and writes them to config (mode 600);
 if the device is not logged in it runs the interactive `login`, then provisions the store.
-A **pluggable secrets backend** is planned (TGN-18): the file backend above stays the
-zero-dependency default, with an opt-in Secret Service backend (`keyring` — KeePassXC,
+A **pluggable secrets backend** (TGN-18): the file backend above stays the
+zero-dependency default, with an opt-in Secret Service backend (KeePassXC,
 gnome-keyring, KWallet, macOS Keychain, …) that holds the session as a Telethon
-`StringSession`. The default path must never require an interactive vault unlock, so
+`StringSession`. On Linux the vault is accessed via `secretstorage` with an explicit
+unlock-and-wait: a locked collection/item is `unlock()`ed, which **blocks until the user
+answers the vault confirmation prompt** (with a small re-request retry), so a
+per-access-confirmation vault like KeePassXC prompts-and-proceeds instead of failing
+with "locked"; entries stay compatible with ones written by the plain `keyring` library
+(looked up by `{service, username}`), and where `secretstorage` is unavailable it falls
+back to `keyring`. The default (file) path never requires an interactive vault unlock, so
 scheduled/unattended runs keep working.
 
 `setup` also tags the store with a fixed title and a marker in its pinned message.

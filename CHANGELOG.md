@@ -71,6 +71,15 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Changed
 
+- The keyring backend now reads/writes the vault via `secretstorage` with an explicit
+  unlock-and-wait (plus a small re-request retry) instead of the plain `keyring` API, so a
+  per-access-confirmation vault (KeePassXC) makes tg-notes **wait for the confirmation
+  prompt** — like every other app — rather than failing outright with "locked". Locked
+  collections/items are `unlock()`ed (which blocks until the user answers), retrying if the
+  prompt is dismissed. Existing `keyring`-written entries remain compatible (looked up by
+  the `{service, username}` attributes); where `secretstorage` is unavailable (non-Linux)
+  it falls back to the plain `keyring` API. The `tg-notes[keyring]` extra now also pulls
+  `secretstorage` on Linux.
 - `secrets doctor`'s "locked" recommendation now explains the KeePassXC
   per-connection-grant limitation (each grant is bound to a short-lived D-Bus connection,
   so a fresh CLI run re-prompts and via keyring usually fails; persistent per-app

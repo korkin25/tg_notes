@@ -59,11 +59,20 @@ KeePassXC's `ConfirmAccessItem` ("confirm when passwords are retrieved by client
 **application-global** — one switch for all open databases. With it **ON**, KeePassXC
 binds each grant to the requesting **D-Bus connection address**, which dies when the
 process exits. A short-lived CLI opens a fresh connection every run, so it re-prompts
-every time and, through python-keyring/secretstorage, typically fails outright: items
-are reported `Locked` (KeePassXC 2.7.0+). Persistent per-application authorization
-(exe fingerprinting) is the still-open feature request **keepassxc#6458**.
+every time. Persistent per-application authorization (exe fingerprinting) is the
+still-open feature request **keepassxc#6458**.
 
-So for a CLI on 2.7.x the practical choices are:
+tg-notes accesses the vault through **`secretstorage`** and **explicitly unlocks** any
+locked collection/item — `item.unlock()` **blocks until you answer the KeePassXC prompt**
+(retrying if you dismiss it), the same way every other Secret Service client behaves. So
+with confirmation **ON**, each command shows a prompt you approve and then proceeds:
+**interactive use works**. (The plain `keyring` API instead reads a locked item without
+unlocking, which is why it used to fail outright with items reported `Locked` on KeePassXC
+2.7.0+.) Only **unattended / cron** runs — where nobody is there to click — still need the
+confirmation-off + dedicated-group setup below, because the blocking prompt would hang.
+
+So for an **unattended** CLI on 2.7.x (cron / timers, no one to click) the practical
+choices are:
 
 - **Confirmation OFF + a dedicated minimal exposed group** (recommended) — simple and
   reliable.
