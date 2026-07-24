@@ -187,6 +187,51 @@ def note_add(
         client.disconnect()
 
 
+def notes_list(cfg: Config, notebook: str, since: object | None = None) -> list[dict]:
+    """Return the raw notes of a notebook topic, oldest first (TGN-5).
+
+    Feeds compilation: each note is ``{"message_id", "date", "text"}``. Service/empty
+    messages (e.g. the topic opener) are skipped. ``since`` is an optional lower bound on
+    the message date (a timezone-aware ``datetime``). An unknown notebook yields ``[]``.
+
+    Raises:
+        NotSetUpError: if no storage group is configured or it no longer resolves.
+        NotConfiguredError / NotAuthorizedError: as in :func:`connect_authorized`.
+    """
+    if not cfg.storage_group_id:
+        raise NotSetUpError(
+            "no storage group configured — run `tg-notes setup` first"
+        )
+    client = connect_authorized(cfg)
+    try:
+        try:
+            entity = client.get_entity(cfg.storage_group_id)
+        except (ValueError, TypeError) as exc:
+            raise NotSetUpError(
+                "configured storage group not found — run `tg-notes setup`"
+            ) from exc
+        topic_id = _list_topics(client, entity).get(notebook)
+        if topic_id is None:
+            return []  # notebook never created → no notes, and nothing to fetch
+        notes = []
+        for message in client.iter_messages(entity, reply_to=topic_id):
+            if since is not None and message.date is not None and message.date < since:
+                continue
+            if not message.text:
+                continue  # skip the topic-opening service message and any empty ones
+            notes.append(
+                {
+                    "message_id": message.id,
+                    "date": _message_date_iso(message),
+                    "text": message.text,
+                }
+            )
+        notes.sort(key=lambda note: note["message_id"])  # oldest first
+        return notes
+    finally:
+        client.disconnect()
+
+
 def _compose_note(text: str, hashtags: list[str] | None = None) -> str:
     """Trim the note body and append normalized hashtags on a trailing blank line."""
     body = text.strip()

@@ -60,6 +60,10 @@ tg-notes setup [--notebook <name>]
 tg-notes note add --notebook daily --text-file note.txt --hashtag infra
 echo "quick note" | tg-notes note add --text-file -
 
+# List the raw notes of a notebook (oldest first) as JSON, optionally bounded by --since
+# (today | HH:MM | YYYY-MM-DD | ISO datetime; local when no offset). Feeds compilation.
+tg-notes notes list --notebook daily --since today
+
 # Log in on its own (setup calls this for you; useful to re-authorize a new device).
 # Requires api_id/api_hash in local config; writes a chmod-600 session file.
 tg-notes login

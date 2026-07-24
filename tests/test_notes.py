@@ -143,3 +143,106 @@ def test_compose_note_ignores_blank_tags() -> None:
 )
 def test_normalize_hashtag(raw: str, expected: str) -> None:
     assert telegram._normalize_hashtag(raw) == expected
+
+
+# --- notes_list() ----------------------------------------------------------------
+
+
+def _note(mid, text, date):
+    import unittest.mock as _m
+
+    return _m.Mock(id=mid, text=text, date=date)
+
+
+def test_notes_list_raises_when_not_set_up(mocker) -> None:
+    fake_cls = mocker.patch("tg_notes.telegram.TelegramClient")
+
+    with pytest.raises(telegram.NotSetUpError):
+        telegram.notes_list(configured(storage_group_id=None), notebook="daily")
+
+    fake_cls.assert_not_called()
+
+
+def test_notes_list_returns_notes_oldest_first(mocker) -> None:
+    instance = _authorized_client(mocker)
+    entity = instance.get_entity.return_value
+    mocker.patch("tg_notes.telegram._list_topics", return_value={"daily": 5})
+    d1 = datetime.datetime(2026, 7, 24, 9, 0, tzinfo=datetime.UTC)
+    d2 = datetime.datetime(2026, 7, 24, 10, 0, tzinfo=datetime.UTC)
+    # iter_messages yields newest-first; notes_list must return oldest-first
+    instance.iter_messages.return_value = [_note(11, "second", d2), _note(6, "first", d1)]
+
+    result = telegram.notes_list(configured(), notebook="daily")
+
+    instance.iter_messages.assert_called_once_with(entity, reply_to=5)
+    assert result == [
+        {"message_id": 6, "date": d1.isoformat(), "text": "first"},
+        {"message_id": 11, "date": d2.isoformat(), "text": "second"},
+    ]
+    instance.disconnect.assert_called_once_with()
+
+
+def test_notes_list_skips_service_and_empty_messages(mocker) -> None:
+    instance = _authorized_client(mocker)
+    mocker.patch("tg_notes.telegram._list_topics", return_value={"daily": 5})
+    d = datetime.datetime(2026, 7, 24, 9, 0, tzinfo=datetime.UTC)
+    instance.iter_messages.return_value = [
+        _note(5, "", d),  # topic-opening service message: empty text
+        _note(6, "real note", d),
+    ]
+
+    result = telegram.notes_list(configured(), notebook="daily")
+
+    assert [n["message_id"] for n in result] == [6]
+
+
+def test_notes_list_filters_by_since(mocker) -> None:
+    instance = _authorized_client(mocker)
+    mocker.patch("tg_notes.telegram._list_topics", return_value={"daily": 5})
+    old = datetime.datetime(2026, 7, 24, 8, 0, tzinfo=datetime.UTC)
+    new = datetime.datetime(2026, 7, 24, 12, 0, tzinfo=datetime.UTC)
+    instance.iter_messages.return_value = [_note(7, "new", new), _note(6, "old", old)]
+    since = datetime.datetime(2026, 7, 24, 10, 0, tzinfo=datetime.UTC)
+
+    result = telegram.notes_list(configured(), notebook="daily", since=since)
+
+    assert [n["message_id"] for n in result] == [7]  # only >= since
+
+
+def test_notes_list_unknown_notebook_returns_empty(mocker) -> None:
+    instance = _authorized_client(mocker)
+    mocker.patch("tg_notes.telegram._list_topics", return_value={"daily": 5})
+
+    result = telegram.notes_list(configured(), notebook="weekly")
+
+    assert result == []
+    instance.iter_messages.assert_not_called()  # nothing to fetch
+
+
+def test_notes_list_group_unresolvable_raises_not_set_up(mocker) -> None:
+    instance = _authorized_client(mocker)
+    instance.get_entity.side_effect = ValueError("gone")
+
+    with pytest.raises(telegram.NotSetUpError):
+        telegram.notes_list(configured(), notebook="daily")
+
+    instance.disconnect.assert_called_once_with()
+
+
+def test_notes_list_disconnects_on_error(mocker) -> None:
+    instance = _authorized_client(mocker)
+    mocker.patch("tg_notes.telegram._list_topics", return_value={"daily": 5})
+    instance.iter_messages.side_effect = RuntimeError("boom")
+
+    with pytest.raises(RuntimeError):
+        telegram.notes_list(configured(), notebook="daily")
+
+    instance.disconnect.assert_called_once_with()
+
+
+def test_notes_list_propagates_not_authorized(mocker) -> None:
+    fake_cls = mocker.patch("tg_notes.telegram.TelegramClient")
+    fake_cls.return_value.is_user_authorized.return_value = False
+
+    with pytest.raises(telegram.NotAuthorizedError):
+        telegram.notes_list(configured(), notebook="daily")

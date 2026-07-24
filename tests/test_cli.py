@@ -31,7 +31,6 @@ def test_build_parser_still_exposes_stub_commands() -> None:
 @pytest.mark.parametrize(
     "argv",
     [
-        ["notes", "list"],
         ["contacts", "list"],
         ["contacts", "set", "boss"],
         ["contacts", "remove", "boss"],
@@ -238,3 +237,99 @@ def test_note_add_command_not_authorized_returns_3(mocker, tmp_path, capsys) -> 
 
     assert rc == 3
     assert "login" in capsys.readouterr().err
+
+
+# --- notes list (TGN-5) ----------------------------------------------------------
+
+
+def test_notes_list_command_prints_json(mocker, capsys) -> None:
+    cfg = config.Config(api_id=1, api_hash="h", storage_group_id=-100)
+    mocker.patch("tg_notes.cli.config.load", return_value=cfg)
+    notes = [{"message_id": 6, "date": "2026-07-24T09:00:00+00:00", "text": "a"}]
+    lst = mocker.patch("tg_notes.cli.telegram.notes_list", return_value=notes)
+
+    rc = cli.main(["notes", "list", "--notebook", "daily"])
+
+    assert rc == 0
+    lst.assert_called_once_with(cfg, notebook="daily", since=None)
+    import json as _json
+
+    assert _json.loads(capsys.readouterr().out) == notes
+
+
+def test_notes_list_command_parses_since(mocker) -> None:
+    cfg = config.Config(api_id=1, api_hash="h", storage_group_id=-100)
+    mocker.patch("tg_notes.cli.config.load", return_value=cfg)
+    lst = mocker.patch("tg_notes.cli.telegram.notes_list", return_value=[])
+
+    rc = cli.main(["notes", "list", "--since", "2026-07-24"])
+
+    assert rc == 0
+    since = lst.call_args.kwargs["since"]
+    assert (since.year, since.month, since.day) == (2026, 7, 24)
+    assert since.tzinfo is not None  # made timezone-aware for comparison
+
+
+def test_notes_list_command_invalid_since_returns_1(mocker) -> None:
+    cfg = config.Config(api_id=1, api_hash="h", storage_group_id=-100)
+    mocker.patch("tg_notes.cli.config.load", return_value=cfg)
+    lst = mocker.patch("tg_notes.cli.telegram.notes_list")
+
+    rc = cli.main(["notes", "list", "--since", "not-a-date"])
+
+    assert rc == 1
+    lst.assert_not_called()  # never reach the network on a parse error
+
+
+def test_notes_list_command_not_set_up_returns_4(mocker, capsys) -> None:
+    mocker.patch("tg_notes.cli.config.load", return_value=config.Config())
+    mocker.patch(
+        "tg_notes.cli.telegram.notes_list",
+        side_effect=telegram.NotSetUpError("run `tg-notes setup` first"),
+    )
+
+    rc = cli.main(["notes", "list"])
+
+    assert rc == 4
+    assert "setup" in capsys.readouterr().err
+
+
+def test_notes_list_command_not_authorized_returns_3(mocker, capsys) -> None:
+    mocker.patch(
+        "tg_notes.cli.config.load", return_value=config.Config(api_id=1, api_hash="h")
+    )
+    mocker.patch(
+        "tg_notes.cli.telegram.notes_list",
+        side_effect=telegram.NotAuthorizedError("not logged in"),
+    )
+
+    rc = cli.main(["notes", "list"])
+
+    assert rc == 3
+    assert "login" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize(
+    ("value", "checks"),
+    [
+        ("2026-07-24", lambda d: (d.year, d.month, d.day, d.hour) == (2026, 7, 24, 0)),
+        ("2026-07-24T09:30", lambda d: (d.hour, d.minute) == (9, 30)),
+    ],
+)
+def test_parse_since_formats(value, checks) -> None:
+    dt = cli._parse_since(value)
+    assert dt.tzinfo is not None
+    assert checks(dt)
+
+
+def test_parse_since_hh_mm_uses_today() -> None:
+    import datetime as _dt
+
+    dt = cli._parse_since("09:30")
+    assert (dt.hour, dt.minute) == (9, 30)
+    assert dt.date() == _dt.datetime.now().astimezone().date()
+
+
+def test_parse_since_rejects_garbage() -> None:
+    with pytest.raises(ValueError):
+        cli._parse_since("not-a-date")

@@ -59,3 +59,10 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   (`notebook` / `topic_id` / `message_id` / `date`). New `telegram.note_add` (+ helpers
   `_compose_note` / `_normalize_hashtag`) and a `NotSetUpError` that tells the user to run
   `setup` first; tests in `tests/test_notes.py` with Telethon fully mocked.
+- Note listing (TGN-5): `tg-notes notes list --notebook <nb> [--since <t>]` returns a
+  notebook's raw notes as a JSON array (oldest first), each `{message_id, date, text}`,
+  skipping the topic-opening service message. `--since` accepts `today`, `HH:MM`,
+  `YYYY-MM-DD`, or a full ISO datetime (interpreted as local time when it carries no
+  offset) and bounds the messages by date; an unknown notebook yields `[]`. New
+  `telegram.notes_list` and a CLI `_parse_since` parser; tests in `tests/test_notes.py`
+  and `tests/test_cli.py` (Telethon mocked).
