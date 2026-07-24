@@ -7,6 +7,8 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-07-25
+
 ### Added
 
 - Media notes — Phase 3 (TGN-21): media capture is now exposed on the agent surfaces. The
