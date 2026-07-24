@@ -6,12 +6,11 @@ live in `docs/`; stages, current status, and checklists are tracked here. Done t
 
 ## Current state / next action
 
-- Branch: `feature/tgn-2`.
-- TGN-1 (project scaffolding) — done, in `CHANGELOG.md`.
-- **ACTIVE:** TGN-2 (Telethon client layer + one-time interactive login) — code and tests
-  landed; the full suite is green (`pytest`, Telethon mocked/offline) and `ruff` is clean.
-  Remaining before ✅: confirm an interactive `tg-notes login` against a real account.
-- Next after TGN-2: TGN-3 (`tg-notes setup`).
+- Branch: `main` (feature/tgn-2 merged).
+- TGN-1 (project scaffolding) and TGN-2 (Telethon client layer + login/whoami) — done,
+  in `CHANGELOG.md`. TGN-2 verified end-to-end: `tg-notes whoami` returns the real
+  account (@korkin25).
+- **NEXT:** TGN-3 (`tg-notes setup`) — start on a new `feature/tgn-3` branch (TDD).
 
 ## Legend
 
@@ -32,15 +31,12 @@ Decision items use `TGN-D<n>`.
 
 ## Current work
 
-| ID | Status | Task | Details |
-| --- | --- | --- | --- |
-| TGN-2 | 🟡 | Telegram client layer (TDD) | Client layer (`tg_notes/telegram.py`) + `login`/`whoami` CLI commands implemented; tests green (Telethon mocked) and ruff clean. Pending: verify interactive `login` against a real account before ✅. See Phase 1. |
+_None in progress. Next up: TGN-3 (see Phase 1)._
 
 ## Phase 1 — CLI core (`tg-notes`)
 
 | ID | Status | Task | Details |
 | --- | --- | --- | --- |
-| TGN-2 | ⬜ | Telegram client layer | Telethon client with the sync wrapper, one-time interactive login, session handling (`chmod 600`). |
 | TGN-3 | ⬜ | `tg-notes setup` | Create or attach a private forum supergroup; ensure the `contacts` topic and a default notebook; persist the group id in local config; tag the group (fixed title + pinned marker) for recovery (TGN-D2). |
 | TGN-4 | ⬜ | `tg-notes note add` | Append a note to a notebook topic (create the topic on demand); optional hashtags. |
 | TGN-5 | ⬜ | `tg-notes notes list` | Fetch raw notes from a notebook within a time range (feeds compilation). |
