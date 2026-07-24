@@ -7,6 +7,23 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Added
+
+- Sandbox testing helper + mandatory-sandbox rule: new `scripts/sandbox.py` automates a
+  THROWAWAY, fully isolated tg-notes install for all live/integration testing so the real
+  `~/.config/tg-notes`, the real keyring, and the real storage group are never touched. It
+  seeds a sandbox config dir (`$TG_NOTES_SANDBOX_DIR` or `~/.config/tg-notes-sandbox`) from
+  the real credentials (real `api_id` from config, real `api_hash` + session from the keyring,
+  read with overrides unset), uses the **file** secrets backend so `tg-notes setup` runs
+  non-interactively, and creates a **dedicated test group** (a fresh `-100…` id, never the
+  real one). Subcommands: `setup` (idempotent seed + prints the `export TG_NOTES_CONFIG_DIR`
+  line), `run -- <cmd>` (exec a command against the sandbox), `pytest -- <args>` (run the
+  gated live tests with `TG_NOTES_LIVE=1`), and `reset` (delete the sandbox). The sandbox
+  session file is a full-access credential (`chmod 600`, outside the repo, never committed).
+  CLAUDE.md now makes sandbox isolation **mandatory** for any test touching real
+  config/keyring/Telegram, and `docs/sandbox-testing.md` documents the helper alongside the
+  existing env-var protocol.
+
 ## [0.1.1] - 2026-07-25
 
 ### Added
