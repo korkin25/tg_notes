@@ -21,6 +21,9 @@ dependencies = [
     "telethon>=1.44",
 ]
 
+[project.optional-dependencies]
+dev = ["pytest>=8", "pytest-mock", "ruff", "bandit", "pip-audit", "build"]
+
 [project.urls]
 Homepage = "https://github.com/korkin25/tg_notes"
 Repository = "https://github.com/korkin25/tg_notes"
@@ -30,3 +33,9 @@ tg-notes = "tg_notes.cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["tg_notes"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py311"
