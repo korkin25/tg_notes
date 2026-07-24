@@ -60,6 +60,15 @@ The skills drive the CLI, so `tg-notes` must be on `PATH`. The two skills:
   stored notes per a contact's style, confirm, and publish with `tg-notes send` (daily
   report is a preset).
 
+For agent hosts that can't shell out (Claude Desktop, …), a local **stdio MCP server**
+exposes the same core (`note_add` / `notes_list` / `contacts_list` / `send`):
+
+```bash
+pipx install "tg-notes[mcp]"   # then point your MCP client at the `tg-notes-mcp` command
+```
+
+It runs over stdio only — the session and secrets never leave the machine.
+
 Available so far:
 
 ```bash
