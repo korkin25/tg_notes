@@ -9,6 +9,16 @@ from telethon.sessions import StringSession
 from tg_notes import secrets, telegram
 from tg_notes.config import Config
 
+
+@pytest.fixture(autouse=True)
+def _reset_ss_conn():
+    """Reset the cached Secret Service connection around every test so the module-level
+    ``_SS_CONN`` cache never leaks between tests (each patches ``secretstorage`` fresh)."""
+    secrets._SS_CONN = None
+    yield
+    secrets._SS_CONN = None
+
+
 # --- backend selection + file backend --------------------------------------------
 
 
@@ -103,6 +113,24 @@ def test_ss_delete_removes_matches(mocker) -> None:
     _fake_ss_collection(mocker, [item])
     secrets._ss_delete("session")
     item.delete.assert_called_once()
+
+
+def test_ss_collection_reuses_one_connection(mocker) -> None:
+    # One D-Bus connection per process → at most one KeePassXC prompt per command.
+    conn = mocker.Mock(name="ss_conn")
+    collection = mocker.Mock()
+    collection.is_locked.return_value = False
+    init = mocker.patch("secretstorage.dbus_init", return_value=conn)
+    get_coll = mocker.patch("secretstorage.get_default_collection", return_value=collection)
+    secrets._SS_CONN = None  # start from a cold cache
+
+    first = secrets._ss_collection()
+    second = secrets._ss_collection()
+
+    assert first is collection and second is collection
+    init.assert_called_once()  # connection opened exactly once, then reused
+    assert get_coll.call_count == 2
+    assert [c.args for c in get_coll.call_args_list] == [(conn,), (conn,)]  # same conn
 
 
 # --- _vault_* dispatch: secretstorage when available, keyring fallback -------------

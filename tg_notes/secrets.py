@@ -54,11 +54,23 @@ def _unlock_wait(obj, attempts: int = 3) -> bool:
     return not obj.is_locked()
 
 
+_SS_CONN = None  # cached Secret Service D-Bus connection (one prompt per process)
+
+
 def _ss_collection():
+    """Return the default Secret Service collection, unlocked (waiting for the prompt).
+
+    The D-Bus connection is opened once and cached for the life of the process. KeePassXC
+    binds each per-access-confirmation grant to the requesting D-Bus connection, so reusing
+    one connection means a single command triggers at most ONE confirmation prompt instead
+    of one per vault read (``api_hash`` + session + ``has_session`` …).
+    """
+    global _SS_CONN
     import secretstorage
 
-    conn = secretstorage.dbus_init()
-    collection = secretstorage.get_default_collection(conn)
+    if _SS_CONN is None:
+        _SS_CONN = secretstorage.dbus_init()
+    collection = secretstorage.get_default_collection(_SS_CONN)
     _unlock_wait(collection)
     return collection
 

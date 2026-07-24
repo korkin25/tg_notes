@@ -66,10 +66,15 @@ tg-notes accesses the vault through **`secretstorage`** and **explicitly unlocks
 locked collection/item — `item.unlock()` **blocks until you answer the KeePassXC prompt**
 (retrying if you dismiss it), the same way every other Secret Service client behaves. So
 with confirmation **ON**, each command shows a prompt you approve and then proceeds:
-**interactive use works**. (The plain `keyring` API instead reads a locked item without
-unlocking, which is why it used to fail outright with items reported `Locked` on KeePassXC
-2.7.0+.) Only **unattended / cron** runs — where nobody is there to click — still need the
-confirmation-off + dedicated-group setup below, because the blocking prompt would hang.
+**interactive use works**. tg-notes reuses a **single** Secret Service D-Bus connection per
+command, so even though one command reads the vault several times (`api_hash`, the session,
+`has_session`), you approve **at most one** KeePassXC prompt per command — the grant is bound
+to that one connection and the later reads ride on it. A fresh command opens a fresh
+connection, so it prompts once again; that is inherent to the per-connection grant model.
+(The plain `keyring` API instead reads a locked item without unlocking, which is why it used
+to fail outright with items reported `Locked` on KeePassXC 2.7.0+.) Only **unattended / cron**
+runs — where nobody is there to click — still need the confirmation-off + dedicated-group
+setup below, because the blocking prompt would hang.
 
 So for an **unattended** CLI on 2.7.x (cron / timers, no one to click) the practical
 choices are:
