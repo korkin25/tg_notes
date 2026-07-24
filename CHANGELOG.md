@@ -7,6 +7,12 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Fixed
+
+- CI: upgrade `pip`/`setuptools` before `pip-audit` so it no longer flags the runner's
+  incidental build tooling (`setuptools` PYSEC-2026-3447, absent on 3.12 but present on
+  3.11), which was failing the pipeline. `tg-notes` does not depend on `setuptools`.
+
 ## [0.1.0] - 2026-07-24
 
 ### Added

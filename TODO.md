@@ -13,17 +13,18 @@ live in `docs/`; stages, current status, and checklists are tracked here. Done t
   (compile & send + daily preset). 121 tests green, ruff + bandit clean.
 - **Dev-installed** (done): `tg-notes` on PATH via `~/.local/bin/tg-notes` → repo `.venv`;
   both skills symlinked into `~/.claude/skills`. They load in new Claude Code sessions.
-- **TGN-13/14 done + release prepped (this branch):** plugin/marketplace manifests
-  (`.claude-plugin/`), `claude plugin validate . --strict` passes; version single-sourced
-  from `tg_notes/__init__.py` and bumped to `0.1.0`; `python -m build` produces a clean
-  sdist+wheel (`twine check` PASSED); `release.yml` switched to PyPI Trusted Publishing.
+- **TGN-13/14 done:** plugin/marketplace manifests (`.claude-plugin/`), `claude plugin
+  validate . --strict` passes. Version single-sourced from `tg_notes/__init__.py`.
+- **TGN-12 done — `tg-notes 0.1.0` PUBLISHED to PyPI** (<https://pypi.org/project/tg-notes/>,
+  wheel + sdist) via the `release.yml` Trusted-Publishing workflow on the `v0.1.0` tag.
+  The one-time pending publisher is now an active Trusted Publisher on the project, so
+  future `v*` tags publish with no extra setup. `pipx install tg-notes` works.
+- CI is green on GitHub (fixed a pip-audit false-positive on the runner's `setuptools`).
 - Logged TGN-18 (pluggable secrets backend — Secret Service/keyring incl. KeePassXC,
   `StringSession` in the vault) as later work; the file backend stays the default.
-- **NEXT — TGN-12 publish (gated, outward, needs the user):** one-time PyPI Trusted
-  Publisher for `tg-notes` bound to `korkin25/tg_notes` (workflow `release.yml`, env
-  `pypi`), then `git tag v0.1.0 && git push --tags` → CI builds & publishes. Do NOT publish
-  without an explicit go. After that: TGN-15 (community marketplace, later), TGN-17 (MCP,
-  optional).
+- **NEXT (optional):** TGN-17 (local stdio MCP adapter), TGN-15 (submit to a community
+  marketplace, later), TGN-16 (`AGENTS.md` cross-agent), TGN-18 (secrets backend). Core
+  product (Phases 1–3) is shipped; remaining items are reach/hardening.
 
 ## Legend
 
@@ -58,7 +59,6 @@ Complete — all rows moved to `CHANGELOG.md`.
 
 | ID | Status | Task | Details |
 | --- | --- | --- | --- |
-| TGN-12 | 🟡 | Publish CLI to PyPI | Repo prepped (0.1.0, single-source version, `release.yml` → Trusted Publishing, build+`twine check` green). Remaining (gated, needs user): PyPI Trusted Publisher for `tg-notes`↔`korkin25/tg_notes`, then tag `v0.1.0`. Decided (was TGN-D1). |
 | TGN-15 | ⬜ | Submit to community marketplace | Validate with `claude plugin validate .` (done — passes), then submit via the console form. Later. |
 | TGN-17 | ⬜ | Local MCP adapter | Expose the core as a local stdio MCP server (official mcp / FastMCP) alongside the CLI: tools note_add / notes_list / contacts_list / send. Same core, second frontend; broadens reach to GUI clients (Claude Desktop, ChatGPT) that cannot shell out. Session/secrets stay local (stdio only, not hosted). |
 
