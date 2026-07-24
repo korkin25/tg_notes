@@ -52,3 +52,10 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   provisioning. If the prompt is left blank (or the values are unusable) it falls back to
   printing step-by-step manual guidance (my.telegram.org → config path → `chmod 600` →
   `login` → re-run) and exits nonzero.
+- Note capture (TGN-4): `tg-notes note add --notebook <nb> --text-file <f>` appends a note
+  to the notebook's forum topic, creating the topic on demand. Reads the note text from a
+  file or stdin (`--text-file -`), appends optional `--hashtag TAG` tokens (repeatable) on
+  a trailing line, refuses to post an empty note, and prints the posted note as JSON
+  (`notebook` / `topic_id` / `message_id` / `date`). New `telegram.note_add` (+ helpers
+  `_compose_note` / `_normalize_hashtag`) and a `NotSetUpError` that tells the user to run
+  `setup` first; tests in `tests/test_notes.py` with Telethon fully mocked.

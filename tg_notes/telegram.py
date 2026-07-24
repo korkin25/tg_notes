@@ -39,6 +39,10 @@ class NotAuthorizedError(Exception):
     """Raised when the local session is not logged in (run ``tg-notes login``)."""
 
 
+class NotSetUpError(Exception):
+    """Raised when no storage group is configured/resolvable (run ``tg-notes setup``)."""
+
+
 def build_client(cfg: Config) -> TelegramClient:
     """Construct a Telethon client from local config (does not connect).
 
@@ -141,6 +145,67 @@ def setup(cfg: Config, notebook: str = DEFAULT_NOTEBOOK) -> dict:
         }
     finally:
         client.disconnect()
+
+
+def note_add(
+    cfg: Config, notebook: str, text: str, hashtags: list[str] | None = None
+) -> dict:
+    """Append a note to a notebook topic, creating the topic on demand (TGN-4).
+
+    Returns ``{"notebook", "topic_id", "message_id", "date"}`` for the posted note.
+
+    Raises:
+        NotSetUpError: if no storage group is configured or it no longer resolves.
+        NotConfiguredError / NotAuthorizedError: as in :func:`connect_authorized`.
+        ValueError: if the composed note is empty.
+    """
+    if not cfg.storage_group_id:
+        raise NotSetUpError(
+            "no storage group configured — run `tg-notes setup` first"
+        )
+    body = _compose_note(text, hashtags)
+    if not body:
+        raise ValueError("refusing to post an empty note")
+
+    client = connect_authorized(cfg)
+    try:
+        try:
+            entity = client.get_entity(cfg.storage_group_id)
+        except (ValueError, TypeError) as exc:
+            raise NotSetUpError(
+                "configured storage group not found — run `tg-notes setup`"
+            ) from exc
+        topic_id = _ensure_topics(client, entity, [notebook])[notebook]
+        message = client.send_message(entity, body, reply_to=topic_id)
+        return {
+            "notebook": notebook,
+            "topic_id": topic_id,
+            "message_id": message.id,
+            "date": _message_date_iso(message),
+        }
+    finally:
+        client.disconnect()
+
+
+def _compose_note(text: str, hashtags: list[str] | None = None) -> str:
+    """Trim the note body and append normalized hashtags on a trailing blank line."""
+    body = text.strip()
+    tags = [_normalize_hashtag(h) for h in (hashtags or []) if h.strip()]
+    if not tags:
+        return body
+    tag_line = " ".join(tags)
+    return f"{body}\n\n{tag_line}" if body else tag_line
+
+
+def _normalize_hashtag(raw: str) -> str:
+    """Return ``raw`` as a single ``#tag`` token (strip, drop leading ``#``, re-prefix)."""
+    return "#" + raw.strip().lstrip("#")
+
+
+def _message_date_iso(message: object) -> str | None:
+    """ISO-8601 timestamp of a sent message, or ``None`` if it carries no date."""
+    date = getattr(message, "date", None)
+    return date.isoformat() if date is not None else None
 
 
 def _resolve_or_create(client: TelegramClient, cfg: Config) -> tuple[object, bool]:

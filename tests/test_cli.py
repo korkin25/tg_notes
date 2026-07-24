@@ -31,7 +31,6 @@ def test_build_parser_still_exposes_stub_commands() -> None:
 @pytest.mark.parametrize(
     "argv",
     [
-        ["note", "add", "--text-file", "note.txt"],
         ["notes", "list"],
         ["contacts", "list"],
         ["contacts", "set", "boss"],
@@ -142,3 +141,100 @@ def test_setup_command_configured_but_not_logged_in_runs_login(mocker) -> None:
     assert setup.call_count == 2
     assert cfg.storage_group_id == -55
     save.assert_called_once_with(cfg)  # only the group-id save (creds already present)
+
+
+# --- note add (TGN-4) ------------------------------------------------------------
+
+
+def test_note_add_command_posts_and_prints(mocker, tmp_path) -> None:
+    note = tmp_path / "note.txt"
+    note.write_text("hello", encoding="utf-8")
+    cfg = config.Config(api_id=1, api_hash="h", storage_group_id=-100)
+    mocker.patch("tg_notes.cli.config.load", return_value=cfg)
+    add = mocker.patch(
+        "tg_notes.cli.telegram.note_add",
+        return_value={"notebook": "daily", "topic_id": 5, "message_id": 99, "date": "d"},
+    )
+
+    rc = cli.main(["note", "add", "--notebook", "daily", "--text-file", str(note)])
+
+    assert rc == 0
+    add.assert_called_once_with(cfg, notebook="daily", text="hello", hashtags=None)
+
+
+def test_note_add_command_passes_hashtags(mocker, tmp_path) -> None:
+    note = tmp_path / "note.txt"
+    note.write_text("hi", encoding="utf-8")
+    cfg = config.Config(api_id=1, api_hash="h", storage_group_id=-100)
+    mocker.patch("tg_notes.cli.config.load", return_value=cfg)
+    add = mocker.patch(
+        "tg_notes.cli.telegram.note_add",
+        return_value={"notebook": "daily", "topic_id": 5, "message_id": 1, "date": "d"},
+    )
+
+    rc = cli.main(
+        ["note", "add", "--text-file", str(note), "--hashtag", "foo", "--hashtag", "bar"]
+    )
+
+    assert rc == 0
+    add.assert_called_once_with(cfg, notebook="daily", text="hi", hashtags=["foo", "bar"])
+
+
+def test_note_add_command_reads_stdin(mocker, monkeypatch) -> None:
+    import io
+
+    cfg = config.Config(api_id=1, api_hash="h", storage_group_id=-100)
+    mocker.patch("tg_notes.cli.config.load", return_value=cfg)
+    add = mocker.patch(
+        "tg_notes.cli.telegram.note_add",
+        return_value={"notebook": "daily", "topic_id": 5, "message_id": 1, "date": "d"},
+    )
+    monkeypatch.setattr("sys.stdin", io.StringIO("from stdin"))
+
+    rc = cli.main(["note", "add", "--text-file", "-"])
+
+    assert rc == 0
+    add.assert_called_once_with(cfg, notebook="daily", text="from stdin", hashtags=None)
+
+
+def test_note_add_command_unreadable_file_returns_1(mocker, tmp_path) -> None:
+    cfg = config.Config(api_id=1, api_hash="h", storage_group_id=-100)
+    mocker.patch("tg_notes.cli.config.load", return_value=cfg)
+    add = mocker.patch("tg_notes.cli.telegram.note_add")
+
+    rc = cli.main(["note", "add", "--text-file", str(tmp_path / "missing.txt")])
+
+    assert rc == 1
+    add.assert_not_called()  # never reach the network on a read error
+
+
+def test_note_add_command_not_set_up_returns_4(mocker, tmp_path, capsys) -> None:
+    note = tmp_path / "note.txt"
+    note.write_text("hi", encoding="utf-8")
+    mocker.patch("tg_notes.cli.config.load", return_value=config.Config())
+    mocker.patch(
+        "tg_notes.cli.telegram.note_add",
+        side_effect=telegram.NotSetUpError("run `tg-notes setup` first"),
+    )
+
+    rc = cli.main(["note", "add", "--text-file", str(note)])
+
+    assert rc == 4
+    assert "setup" in capsys.readouterr().err
+
+
+def test_note_add_command_not_authorized_returns_3(mocker, tmp_path, capsys) -> None:
+    note = tmp_path / "note.txt"
+    note.write_text("hi", encoding="utf-8")
+    mocker.patch(
+        "tg_notes.cli.config.load", return_value=config.Config(api_id=1, api_hash="h")
+    )
+    mocker.patch(
+        "tg_notes.cli.telegram.note_add",
+        side_effect=telegram.NotAuthorizedError("not logged in"),
+    )
+
+    rc = cli.main(["note", "add", "--text-file", str(note)])
+
+    assert rc == 3
+    assert "login" in capsys.readouterr().err
