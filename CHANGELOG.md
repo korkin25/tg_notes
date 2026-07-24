@@ -9,6 +9,21 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
+- Audio transcription now **auto-fetches the whisper engine on first use**. When a
+  transcription is needed and no engine is present, `transcribe.ensure_engine(cfg)` installs
+  `faster-whisper` once per process — best-effort: `pipx inject tg-notes faster-whisper`
+  inside a pipx-managed venv (detected via `"pipx"` in `sys.prefix` + a `pipx` on `PATH`),
+  otherwise `<python> -m pip install faster-whisper` — then re-checks and proceeds; the model
+  itself still downloads on first `WhisperModel` use. It is **best-effort and never aborts the
+  upload**: a failed or non-zero install logs a one-line stderr hint (`install it manually:
+  pipx inject tg-notes faster-whisper`) and the file uploads with no caption, exactly as when
+  no engine is available. A module-level guard attempts the install at most once per process.
+  New non-secret config key `transcriber_autoinstall` (absent/`None` ⇒ enabled; set
+  `transcriber_autoinstall = false` to disable — e.g. to always pre-install the engine
+  yourself). No CLI/MCP surface change — the auto-fetch happens transparently inside the
+  existing `transcribe()` path. Fully-mocked tests in `tests/test_transcribe.py` (existing
+  engine short-circuit, disabled, pipx-inject vs pip-install argv, non-zero/raising install,
+  the one-time guard) and a config round-trip in `tests/test_config.py`.
 - Sandbox testing helper + mandatory-sandbox rule: new `scripts/sandbox.py` automates a
   THROWAWAY, fully isolated tg-notes install for all live/integration testing so the real
   `~/.config/tg-notes`, the real keyring, and the real storage group are never touched. It

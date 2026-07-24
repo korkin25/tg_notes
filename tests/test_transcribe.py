@@ -38,6 +38,22 @@ def _fake_faster_whisper(record: dict | None = None, segments=(" Hello", " world
     return mod
 
 
+@pytest.fixture(autouse=True)
+def _isolate_install_state(monkeypatch):
+    """Isolate every test: reset the one-time install guard and forbid a real subprocess.
+
+    Tests that legitimately drive the installer override ``subprocess.run`` with their own
+    fake (which layers on top of this guard); every other test is protected from ever
+    shelling out to a real ``pip``/``pipx`` install.
+    """
+    monkeypatch.setattr(transcribe, "_INSTALL_ATTEMPTED", False, raising=False)
+
+    def _no_real_subprocess(*args, **kwargs):  # pragma: no cover - guard, should not fire
+        raise AssertionError("real subprocess.run must never run in a unit test")
+
+    monkeypatch.setattr(transcribe.subprocess, "run", _no_real_subprocess)
+
+
 # --- is_audio ---------------------------------------------------------------------
 
 
@@ -269,7 +285,120 @@ def test_transcribe_cli_run_oserror_raises(monkeypatch, tmp_path) -> None:
 
 
 def test_transcribe_unavailable_when_no_engine(monkeypatch) -> None:
+    # autoinstall disabled → no engine stays no engine (and no install is attempted).
     monkeypatch.setattr(transcribe.shutil, "which", lambda name: None)
     monkeypatch.setitem(sys.modules, "faster_whisper", None)
+    with pytest.raises(transcribe.TranscriptionUnavailable):
+        transcribe.transcribe("/tmp/a.ogg", Config(transcriber_autoinstall=False))
+
+
+# --- ensure_engine: first-run auto-fetch of the whisper engine --------------------
+
+
+def test_ensure_engine_returns_existing_backend(monkeypatch) -> None:
+    # An engine is already available → return it, never touch the installer.
+    monkeypatch.setattr(transcribe, "available_transcriber", lambda cfg=None: "/usr/bin/whisper")
+    assert transcribe.ensure_engine(Config()) == "/usr/bin/whisper"
+
+
+def test_ensure_engine_disabled_returns_none(monkeypatch) -> None:
+    # No engine + autoinstall explicitly off → None, no install (guarded subprocess).
+    monkeypatch.setattr(transcribe, "available_transcriber", lambda cfg=None: None)
+    assert transcribe.ensure_engine(Config(transcriber_autoinstall=False)) is None
+
+
+def test_ensure_engine_pipx_inject_then_returns_engine(monkeypatch) -> None:
+    # No engine, enabled, pipx context → `pipx inject tg-notes faster-whisper`; the
+    # post-install re-check finds the engine → it is returned.
+    seq = iter([None, "faster-whisper"])
+    monkeypatch.setattr(transcribe, "available_transcriber", lambda cfg=None: next(seq))
+    monkeypatch.setattr(transcribe.sys, "prefix", "/home/u/.local/pipx/venvs/tg-notes")
+    monkeypatch.setattr(
+        transcribe.shutil, "which", lambda name: "/usr/bin/pipx" if name == "pipx" else None
+    )
+    calls: dict = {}
+
+    def fake_run(argv, **kwargs):
+        calls["argv"] = argv
+        calls["kwargs"] = kwargs
+        return types.SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(transcribe.subprocess, "run", fake_run)
+
+    out = transcribe.ensure_engine(Config())
+
+    assert out == "faster-whisper"
+    assert calls["argv"] == ["pipx", "inject", "tg-notes", "faster-whisper"]
+    assert calls["kwargs"]["check"] is False
+    assert calls["kwargs"]["capture_output"] is True
+    assert calls["kwargs"]["text"] is True
+    assert "timeout" in calls["kwargs"]
+
+
+def test_ensure_engine_pip_install_non_pipx(monkeypatch) -> None:
+    # No engine, enabled, non-pipx context → `<python> -m pip install faster-whisper`.
+    seq = iter([None, "faster-whisper"])
+    monkeypatch.setattr(transcribe, "available_transcriber", lambda cfg=None: next(seq))
+    monkeypatch.setattr(transcribe.sys, "prefix", "/usr")
+    monkeypatch.setattr(transcribe.sys, "executable", "/usr/bin/python3")
+    monkeypatch.setattr(transcribe.shutil, "which", lambda name: None)
+    calls: dict = {}
+
+    def fake_run(argv, **kwargs):
+        calls["argv"] = argv
+        return types.SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(transcribe.subprocess, "run", fake_run)
+
+    out = transcribe.ensure_engine(Config())
+
+    assert out == "faster-whisper"
+    assert calls["argv"] == ["/usr/bin/python3", "-m", "pip", "install", "faster-whisper"]
+
+
+def test_ensure_engine_nonzero_exit_returns_none_with_hint(monkeypatch, capsys) -> None:
+    monkeypatch.setattr(transcribe, "available_transcriber", lambda cfg=None: None)
+    monkeypatch.setattr(transcribe.sys, "prefix", "/usr")
+
+    def fake_run(argv, **kwargs):
+        return types.SimpleNamespace(returncode=1, stdout="", stderr="pip boom")
+
+    monkeypatch.setattr(transcribe.subprocess, "run", fake_run)
+
+    assert transcribe.ensure_engine(Config()) is None
+    assert "pipx inject tg-notes faster-whisper" in capsys.readouterr().err
+
+
+def test_ensure_engine_subprocess_raises_returns_none(monkeypatch, capsys) -> None:
+    monkeypatch.setattr(transcribe, "available_transcriber", lambda cfg=None: None)
+    monkeypatch.setattr(transcribe.sys, "prefix", "/usr")
+
+    def fake_run(argv, **kwargs):
+        raise OSError("no pip here")
+
+    monkeypatch.setattr(transcribe.subprocess, "run", fake_run)
+
+    assert transcribe.ensure_engine(Config()) is None
+    assert "install it manually" in capsys.readouterr().err
+
+
+def test_ensure_engine_install_attempted_once_per_process(monkeypatch) -> None:
+    monkeypatch.setattr(transcribe, "available_transcriber", lambda cfg=None: None)
+    monkeypatch.setattr(transcribe.sys, "prefix", "/usr")
+    n = {"count": 0}
+
+    def fake_run(argv, **kwargs):
+        n["count"] += 1
+        return types.SimpleNamespace(returncode=1, stdout="", stderr="")
+
+    monkeypatch.setattr(transcribe.subprocess, "run", fake_run)
+
+    assert transcribe.ensure_engine(Config()) is None
+    assert transcribe.ensure_engine(Config()) is None  # second call must not re-attempt
+    assert n["count"] == 1
+
+
+def test_transcribe_raises_unavailable_when_ensure_engine_none(monkeypatch) -> None:
+    monkeypatch.setattr(transcribe, "ensure_engine", lambda cfg=None: None)
     with pytest.raises(transcribe.TranscriptionUnavailable):
         transcribe.transcribe("/tmp/a.ogg", Config())
