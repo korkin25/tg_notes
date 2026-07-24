@@ -46,6 +46,71 @@ appended below as work is picked up.
 
 Group-(b) methodology: `auto-tests/group-b/kind-deploy.md`.
 
+## Feature 23 — CI live-functional tests (TGN-25)
+
+The gated live Telegram flow, promoted to run **under CI** against a dedicated test
+account + group. Locally these run via `scripts/sandbox.py pytest -- tests/test_live_functional.py`;
+in CI the `live-functional` job seeds config from the `ci-functional` environment secrets.
+
+The goal (per the maintainer): run every current feature's real data path — via **CLI** and
+**MCP** — under CI against a dedicated test account. The **secure-store (keyring)** flow needs
+a Secret Service CI lacks, so it stays a dev-machine group-(b) test; **audio transcription**
+needs a whisper engine (group-(b), covered by `test_live_transcribe.py`).
+
+**Env source (mocked, plain CI):**
+
+| Test (`test_sandbox_script.py`) | Group | What it asserts | Status |
+|------|-------|-----------------|--------|
+| `test_read_ci_credentials_*` | (a) | env source parses `TG_NOTES_API_ID/HASH/SESSION[/TEST_GROUP]`; `None` when incomplete; errors on non-int id/group | ✅ |
+| `test_provision_uses_ci_credentials` / `..._falls_back_to_real` | (a) | `_provision_sandbox` seeds the file backend from env creds when present, else the local keyring recipe | ✅ |
+
+**CLI surface — `test_live_functional.py`** (gated by `TG_NOTES_LIVE`¹):
+
+| Test | Group | What it asserts | Status |
+|------|-------|-----------------|--------|
+| `test_cli_whoami` | (a)-in-CI | `whoami` returns the dedicated account identity | ⬜ |
+| `test_cli_secrets_report_file_backend` | (a)-in-CI | `secrets status` + `secrets doctor --json` report `configured`+`has_session` on the file backend | ⬜ |
+| `test_cli_setup_idempotent` | (a)-in-CI | re-running `setup` yields the same `group_id` + the contacts topic | ⬜ |
+| `test_cli_note_text_roundtrip` | (a)-in-CI | `note add --text-file` (+`--hashtag`) → `notes list` returns it | ⬜ |
+| `test_cli_note_media_document` / `..._photo` | (a)-in-CI | `note add --file` uploads document/photo; `notes list` reports the media type | ⬜ |
+| `test_cli_notes_list_since_filter` / `test_cli_notebooks_list` | (a)-in-CI | time-bounded `notes list`; `notebooks list` excludes reserved topics | ⬜ |
+| `test_cli_contacts_crud` | (a)-in-CI | `contacts set` → `list` (style preserved) → `remove` clears it | ⬜ |
+| `test_cli_send_dry_run` / `test_cli_send_real_self` | (a)-in-CI | `send --dry-run` composes (mention prepended); a real self-send posts + is deleted | ⬜ |
+
+**MCP surface — `test_live_mcp.py`** (gated by `TG_NOTES_LIVE`¹):
+
+| Test | Group | What it asserts | Status |
+|------|-------|-----------------|--------|
+| `test_mcp_note_roundtrip` / `test_mcp_notes_list_since` | (a)-in-CI | MCP `note_add` → `notes_list`; `since` bound parsed | ⬜ |
+| `test_mcp_note_file_document` | (a)-in-CI | MCP `note_add_file` uploads a document with caption | ⬜ |
+| `test_mcp_contacts_list` / `test_mcp_send_dry_run` | (a)-in-CI | MCP `contacts_list` returns a set contact; `send` dry-run composes | ⬜ |
+
+**Secure store (keyring) — `test_live_secure_store.py`** (group-(b), dev machine only):
+
+| Test | Group | What it asserts | Status |
+|------|-------|-----------------|--------|
+| `test_secure_store_migration_roundtrip` | (b) | file→keyring migration, `whoami` from the vault `StringSession`, migrate back — restored on failure. Opt-in `TG_NOTES_LIVE_KEYRING=1`; never in CI | ⬜ |
+
+**Skip behavior:**
+
+| Test | Group | What it asserts | Status |
+|------|-------|-----------------|--------|
+| CI job `live-functional` skips when `TG_NOTES_SESSION` absent | (a) | forks / unconfigured repos stay green (exit 0, no Telegram I/O) | ✅ |
+
+**Cleanup (`scripts/cleanup_live.py`, tests in `test_cleanup_script.py`):**
+
+| Test | Group | What it asserts | Status |
+|------|-------|-----------------|--------|
+| `test_guard_rejects_the_real_store` / `..._missing_group` / `..._allows_a_dedicated_group` | (a) | cleanup **refuses** the real store (`-1004432534270`) and an unconfigured one | ✅ |
+| `test_purge_deletes_non_opener_messages` / `..._skips_unknown_notebook` | (a) | `purge` deletes every note but the topic opener; unknown notebook is a no-op | ✅ |
+| `test_delete_group_calls_delete_channel` | (a) | `group` tears the dedicated test group down | ✅ |
+| `test_main_*` | (a) | dispatch + defaults (`citest`/`mediatest`) + abort-on-real-store | ✅ |
+| live-functional CI job runs `purge` as an **always-run** step | (a) | the dedicated test group never accumulates notes across runs | ✅ |
+
+¹ Runs in CI once the maintainer sets the `ci-functional` secrets, and locally via the
+sandbox. Never touches the real store (`-1004432534270`) — a guard asserts the configured
+group id is a dedicated one.
+
 <!-- Template — copy per new feature:
 
 ## Feature <n> — <title>

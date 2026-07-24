@@ -131,6 +131,43 @@ def _read_real_credentials() -> tuple[int, str, str]:
     return api_id, api_hash, session_str
 
 
+def _read_ci_credentials() -> tuple[int, str, str, int | None] | None:
+    """Read the dedicated test account's credentials from the environment (CI path, TGN-25).
+
+    Under GitHub Actions there is no local keyring, so the credentials arrive as env vars
+    (the ``ci-functional`` environment secrets): ``TG_NOTES_API_ID``, ``TG_NOTES_API_HASH``,
+    ``TG_NOTES_SESSION`` (a Telethon ``StringSession`` for a **dedicated test account**, never
+    a personal one) and the optional ``TG_NOTES_TEST_GROUP`` (a pre-created dedicated group id
+    so ``setup`` attaches instead of creating a fresh group every run).
+
+    Returns ``(api_id, api_hash, session_str, group_id | None)`` when the three required vars
+    are all present, or ``None`` when they are not — the caller then falls back to the local
+    keyring recipe (:func:`_read_real_credentials`).
+
+    Raises:
+        SandboxError: if ``TG_NOTES_API_ID`` / ``TG_NOTES_TEST_GROUP`` are set but not integers.
+    """
+    raw_id = os.environ.get("TG_NOTES_API_ID")
+    api_hash = os.environ.get("TG_NOTES_API_HASH")
+    session_str = os.environ.get("TG_NOTES_SESSION")
+    if not (raw_id and api_hash and session_str):
+        return None
+    try:
+        api_id = int(raw_id)
+    except ValueError as exc:
+        raise SandboxError(f"TG_NOTES_API_ID must be an integer, got {raw_id!r}") from exc
+    group_id: int | None = None
+    raw_group = os.environ.get("TG_NOTES_TEST_GROUP")
+    if raw_group:
+        try:
+            group_id = int(raw_group)
+        except ValueError as exc:
+            raise SandboxError(
+                f"TG_NOTES_TEST_GROUP must be an integer, got {raw_group!r}"
+            ) from exc
+    return api_id, api_hash, session_str, group_id
+
+
 def _run_tg_setup(sbx: Path) -> None:
     """Run ``tg-notes setup`` under the sandbox config dir to create the dedicated test group."""
     env = _sandbox_env(sbx)
@@ -155,12 +192,22 @@ def _run_tg_setup(sbx: Path) -> None:
 
 
 def _provision_sandbox(sbx: Path) -> None:
-    """Seed the sandbox from the real credentials, then create its dedicated test group.
+    """Seed the sandbox from credentials, then create/attach its dedicated test group.
 
-    NOTE: this is the ONE function that touches the real credentials and spawns ``setup``;
-    tests monkeypatch it so the real recipe never runs in CI.
+    Credentials come from the environment when the CI vars are set (``_read_ci_credentials``
+    — the GitHub Actions path, with an optionally pre-created test group), otherwise from the
+    local keyring (``_read_real_credentials`` — the developer-machine path). Either way the
+    session is materialized on disk under the file backend so ``setup`` runs non-interactively.
+
+    NOTE: this is the ONE function that touches real/CI credentials and spawns ``setup``;
+    tests monkeypatch it so neither recipe runs unintentionally.
     """
-    api_id, api_hash, session_str = _read_real_credentials()
+    ci = _read_ci_credentials()
+    if ci is not None:
+        api_id, api_hash, session_str, group_id = ci
+    else:
+        api_id, api_hash, session_str = _read_real_credentials()
+        group_id = None  # let `setup` create a fresh dedicated group on the dev machine
     sbx.mkdir(parents=True, exist_ok=True)
     os.chmod(sbx, 0o700)
     cfg = Config(
@@ -168,6 +215,7 @@ def _provision_sandbox(sbx: Path) -> None:
         api_hash=api_hash,
         secrets_backend="file",
         session_path=str(_sandbox_session_path(sbx)),
+        storage_group_id=group_id,  # attach to a pre-created dedicated group when given
     )
     with _config_dir_env(sbx):
         config.save(cfg)
