@@ -52,21 +52,54 @@ The gated live Telegram flow, promoted to run **under CI** against a dedicated t
 account + group. Locally these run via `scripts/sandbox.py pytest -- tests/test_live_functional.py`;
 in CI the `live-functional` job seeds config from the `ci-functional` environment secrets.
 
+The goal (per the maintainer): run every current feature's real data path — via **CLI** and
+**MCP** — under CI against a dedicated test account. The **secure-store (keyring)** flow needs
+a Secret Service CI lacks, so it stays a dev-machine group-(b) test; **audio transcription**
+needs a whisper engine (group-(b), covered by `test_live_transcribe.py`).
+
+**Env source (mocked, plain CI):**
+
+| Test (`test_sandbox_script.py`) | Group | What it asserts | Status |
+|------|-------|-----------------|--------|
+| `test_read_ci_credentials_*` | (a) | env source parses `TG_NOTES_API_ID/HASH/SESSION[/TEST_GROUP]`; `None` when incomplete; errors on non-int id/group | ✅ |
+| `test_provision_uses_ci_credentials` / `..._falls_back_to_real` | (a) | `_provision_sandbox` seeds the file backend from env creds when present, else the local keyring recipe | ✅ |
+
+**CLI surface — `test_live_functional.py`** (gated by `TG_NOTES_LIVE`¹):
+
 | Test | Group | What it asserts | Status |
 |------|-------|-----------------|--------|
-| `test_read_ci_credentials_*` (in `test_sandbox_script.py`) | (a) | env source parses `TG_NOTES_API_ID/HASH/SESSION[/TEST_GROUP]`; returns `None` when incomplete; errors on non-int id/group | ⬜ |
-| `test_provision_uses_ci_credentials` / `..._falls_back_to_real` | (a) | `_provision_sandbox` seeds the file backend from env creds when present, else the local keyring recipe | ⬜ |
-| `test_live_whoami` | (a)-in-CI¹ | `whoami` returns the dedicated account identity | ⬜ |
-| `test_live_secrets_doctor` | (a)-in-CI¹ | `secrets doctor --json` reports `configured` + `has_session` true on the file backend | ⬜ |
-| `test_live_setup_idempotent` | (a)-in-CI¹ | `setup` attaches/creates the store and re-running yields the same `group_id` + topics | ⬜ |
-| `test_live_note_roundtrip` | (a)-in-CI¹ | `note add` → `notes list` returns the posted note | ⬜ |
-| `test_live_contacts_roundtrip` | (a)-in-CI¹ | `contacts set` → `contacts list` returns the contact; `remove` clears it | ⬜ |
-| `test_live_notebooks_list` / `test_live_send_dry_run` | (a)-in-CI¹ | notebooks listed; `send --dry-run` composes without posting | ⬜ |
-| CI job `live-functional` skips when `TG_NOTES_SESSION` absent | (a) | forks / unconfigured repos stay green (exit 0, no Telegram I/O) | ⬜ |
+| `test_cli_whoami` | (a)-in-CI | `whoami` returns the dedicated account identity | ⬜ |
+| `test_cli_secrets_report_file_backend` | (a)-in-CI | `secrets status` + `secrets doctor --json` report `configured`+`has_session` on the file backend | ⬜ |
+| `test_cli_setup_idempotent` | (a)-in-CI | re-running `setup` yields the same `group_id` + the contacts topic | ⬜ |
+| `test_cli_note_text_roundtrip` | (a)-in-CI | `note add --text-file` (+`--hashtag`) → `notes list` returns it | ⬜ |
+| `test_cli_note_media_document` / `..._photo` | (a)-in-CI | `note add --file` uploads document/photo; `notes list` reports the media type | ⬜ |
+| `test_cli_notes_list_since_filter` / `test_cli_notebooks_list` | (a)-in-CI | time-bounded `notes list`; `notebooks list` excludes reserved topics | ⬜ |
+| `test_cli_contacts_crud` | (a)-in-CI | `contacts set` → `list` (style preserved) → `remove` clears it | ⬜ |
+| `test_cli_send_dry_run` / `test_cli_send_real_self` | (a)-in-CI | `send --dry-run` composes (mention prepended); a real self-send posts + is deleted | ⬜ |
 
-¹ Gated by `TG_NOTES_LIVE=1`; runs in CI only once the maintainer sets the `ci-functional`
-secrets, and locally via the sandbox. Never touches the real store (`-1004432534270`) — a
-guard asserts the configured group id is a dedicated one.
+**MCP surface — `test_live_mcp.py`** (gated by `TG_NOTES_LIVE`¹):
+
+| Test | Group | What it asserts | Status |
+|------|-------|-----------------|--------|
+| `test_mcp_note_roundtrip` / `test_mcp_notes_list_since` | (a)-in-CI | MCP `note_add` → `notes_list`; `since` bound parsed | ⬜ |
+| `test_mcp_note_file_document` | (a)-in-CI | MCP `note_add_file` uploads a document with caption | ⬜ |
+| `test_mcp_contacts_list` / `test_mcp_send_dry_run` | (a)-in-CI | MCP `contacts_list` returns a set contact; `send` dry-run composes | ⬜ |
+
+**Secure store (keyring) — `test_live_secure_store.py`** (group-(b), dev machine only):
+
+| Test | Group | What it asserts | Status |
+|------|-------|-----------------|--------|
+| `test_secure_store_migration_roundtrip` | (b) | file→keyring migration, `whoami` from the vault `StringSession`, migrate back — restored on failure. Opt-in `TG_NOTES_LIVE_KEYRING=1`; never in CI | ⬜ |
+
+**Skip behavior:**
+
+| Test | Group | What it asserts | Status |
+|------|-------|-----------------|--------|
+| CI job `live-functional` skips when `TG_NOTES_SESSION` absent | (a) | forks / unconfigured repos stay green (exit 0, no Telegram I/O) | ✅ |
+
+¹ Runs in CI once the maintainer sets the `ci-functional` secrets, and locally via the
+sandbox. Never touches the real store (`-1004432534270`) — a guard asserts the configured
+group id is a dedicated one.
 
 <!-- Template — copy per new feature:
 

@@ -7,14 +7,19 @@ New requests and ideas land here first, then become tasks in [TODO.md](TODO.md).
 
 ## Current (in progress)
 
-23. **CI live-functional tests.** Run the real Telegram flow — `setup`, `secrets doctor`,
-    `whoami`, and data round-trips (note add→list, contacts set→list, notebooks list, `send
-    --dry-run`) — under GitHub Actions against a **dedicated test account and group**, so the
-    end-to-end path is exercised on every push (not only unit/mocked tests). Credentials come
-    from the `ci-functional` environment secrets (`TG_NOTES_API_ID`, `TG_NOTES_API_HASH`,
-    `TG_NOTES_SESSION` as a `StringSession`, optional `TG_NOTES_TEST_GROUP`); `scripts/sandbox.py`
-    seeds a throwaway file-backend config from them. The job skips cleanly when the secrets are
-    absent (forks, or before the maintainer configures them), and never touches the real store.
+23. **CI live-functional tests.** Run **every current feature's real data path** — through both
+    the **CLI** and the **MCP** tools — under GitHub Actions against a **dedicated test account
+    and group**, so the end-to-end flow is exercised on every push (not only unit/mocked tests).
+    Coverage: `setup`, `secrets status`/`doctor`, `whoami`; text and media `note add`, `notes
+    list`, `notebooks list`; the `contacts` CRUD; `send` (dry-run **and** a real self-send that
+    is cleaned up); and the same operations through the MCP `note_add`/`note_add_file`/
+    `notes_list`/`contacts_list`/`send` tools. Credentials come from the `ci-functional`
+    environment secrets (`TG_NOTES_API_ID`, `TG_NOTES_API_HASH`, `TG_NOTES_SESSION` as a
+    `StringSession`, optional `TG_NOTES_TEST_GROUP`); `scripts/sandbox.py` seeds a throwaway
+    file-backend config from them. The job **skips cleanly** when the secrets are absent (forks,
+    or before the maintainer configures them), and never touches the real store. The
+    **secure-store (keyring)** round-trip needs a Secret Service CI lacks, so it is a dev-machine
+    test (opt-in `TG_NOTES_LIVE_KEYRING=1`); audio transcription likewise stays a dev-machine test.
 
 ## Planned
 
