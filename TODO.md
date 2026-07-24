@@ -4,6 +4,15 @@ Single list of **open** work on `tg_notes` (statuses ⬜/🟡). Architecture and
 live in `docs/`; stages, current status, and checklists are tracked here. Done tasks
 (✅) move to [CHANGELOG.md](CHANGELOG.md) — see the rule below.
 
+## Current state / next action
+
+- Branch: `feature/tgn-2`.
+- TGN-1 (project scaffolding) — done, in `CHANGELOG.md`.
+- **ACTIVE:** TGN-2 (Telethon client layer + one-time interactive login) — code and tests
+  landed; the full suite is green (`pytest`, Telethon mocked/offline) and `ruff` is clean.
+  Remaining before ✅: confirm an interactive `tg-notes login` against a real account.
+- Next after TGN-2: TGN-3 (`tg-notes setup`).
+
 ## Legend
 
 ⬜ Planned · 🟡 In progress · ✅ Done → moved to `CHANGELOG.md`
@@ -20,6 +29,12 @@ live in `docs/`; stages, current status, and checklists are tracked here. Done t
 Tasks use local identifiers `TGN-<n>` (no external tracker). Reference them in
 discussions, commits, and PRs. Numbering is mandatory and IDs are never reused.
 Decision items use `TGN-D<n>`.
+
+## Current work
+
+| ID | Status | Task | Details |
+| --- | --- | --- | --- |
+| TGN-2 | 🟡 | Telegram client layer (TDD) | Client layer (`tg_notes/telegram.py`) + `login`/`whoami` CLI commands implemented; tests green (Telethon mocked) and ruff clean. Pending: verify interactive `login` against a real account before ✅. See Phase 1. |
 
 ## Phase 1 — CLI core (`tg-notes`)
 
@@ -49,6 +64,7 @@ Decision items use `TGN-D<n>`.
 | TGN-13 | ⬜ | Claude plugin packaging | `.claude-plugin/plugin.json`, skill path, `${CLAUDE_PLUGIN_ROOT}` for bundled paths. |
 | TGN-14 | ⬜ | Git plugin marketplace | `.claude-plugin/marketplace.json`; document `/plugin marketplace add` and install. |
 | TGN-15 | ⬜ | Submit to community marketplace | Validate with `claude plugin validate .`, then submit via the console form. Later. |
+| TGN-17 | ⬜ | Local MCP adapter | Expose the core as a local stdio MCP server (official mcp / FastMCP) alongside the CLI: tools note_add / notes_list / contacts_list / send. Same core, second frontend; broadens reach to GUI clients (Claude Desktop, ChatGPT) that cannot shell out. Session/secrets stay local (stdio only, not hosted). |
 
 ## Phase 4 — Multi-agent portability
 

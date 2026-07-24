@@ -1,6 +1,8 @@
 """tg-notes command-line entrypoint.
 
 Command surface (implemented incrementally — see TODO.md):
+  login                        one-time interactive Telegram login     (TGN-2)
+  whoami                       print the logged-in account identity    (TGN-2)
   setup                        create/attach the storage group        (TGN-3)
   note add                     append a note to a notebook             (TGN-4)
   notes list                   list raw notes from a notebook          (TGN-5)
@@ -8,14 +10,16 @@ Command surface (implemented incrementally — see TODO.md):
   send                         publish a compiled note to a contact    (TGN-7)
   notebooks list               list notebook topics                    (TGN-8)
 
-Only the argument surface exists so far; command bodies land in their own tasks.
+`login` and `whoami` are implemented (TGN-2); the remaining command bodies land in
+their own tasks and are stubs for now.
 """
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 
-from . import __version__
+from . import __version__, config, telegram
 
 
 def _todo(task: str):
@@ -28,6 +32,33 @@ def _todo(task: str):
     return handler
 
 
+def _login(args: argparse.Namespace) -> int:
+    """Run the one-time interactive Telegram login and store the session."""
+    cfg = config.load()
+    try:
+        identity = telegram.login(cfg)
+    except telegram.NotConfiguredError as exc:
+        sys.stderr.write(f"{exc}\n")
+        return 1
+    print(json.dumps(identity, ensure_ascii=False))
+    return 0
+
+
+def _whoami(args: argparse.Namespace) -> int:
+    """Print the identity of the currently logged-in account."""
+    cfg = config.load()
+    try:
+        identity = telegram.whoami(cfg)
+    except telegram.NotConfiguredError as exc:
+        sys.stderr.write(f"{exc}\n")
+        return 1
+    except telegram.NotAuthorizedError as exc:
+        sys.stderr.write(f"{exc}\n")
+        return 3
+    print(json.dumps(identity, ensure_ascii=False))
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="tg-notes",
@@ -35,6 +66,14 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--version", action="version", version=f"tg-notes {__version__}")
     sub = parser.add_subparsers(dest="command", metavar="<command>", required=True)
+
+    # login (TGN-2)
+    p_login = sub.add_parser("login", help="one-time interactive Telegram login")
+    p_login.set_defaults(func=_login)
+
+    # whoami (TGN-2)
+    p_whoami = sub.add_parser("whoami", help="print the logged-in account identity")
+    p_whoami.set_defaults(func=_whoami)
 
     # setup (TGN-3)
     p_setup = sub.add_parser("setup", help="create or attach the storage group")

@@ -41,8 +41,19 @@ to compile, and publishes the result. See [docs/architecture.md](docs/architectu
 
 ## Install & usage
 
-Planned. The CLI will ship on PyPI; the Claude Code Skill will ship as a plugin
-installable from a git marketplace. Details land here as implementation proceeds.
+The CLI will ship on PyPI; the Claude Code Skill will ship as a plugin installable from a
+git marketplace. More usage lands here as commands are implemented.
+
+Available so far:
+
+```bash
+# One-time interactive login (prompts for phone number, code, and 2FA if enabled).
+# Requires api_id/api_hash in local config; writes a chmod-600 session file.
+tg-notes login
+
+# Print the logged-in account identity (id / username / first name).
+tg-notes whoami
+```
 
 ## Security & Telegram ToS
 
