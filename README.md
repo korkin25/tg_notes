@@ -115,6 +115,8 @@ tg-notes secrets doctor                    # diagnose the store + get setup/migr
 tg-notes secrets migrate --to keyring     # or: --to file to move back
 # Using KeePassXC as the store (serve Secret Service, dedicated group, the
 # confirmation trade-off): see docs/keepassxc.md.
+# Test setup/doctor/migrate end-to-end against a throwaway isolated install
+# (never touches the real config/session/vault): see docs/sandbox-testing.md.
 
 # Log in on its own (setup calls this for you; useful to re-authorize a new device).
 # Requires api_id/api_hash in local config; writes a chmod-600 session file.
