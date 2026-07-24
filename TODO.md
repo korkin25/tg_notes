@@ -21,17 +21,10 @@ Tasks use local identifiers `TGN-<n>` (no external tracker). Reference them in
 discussions, commits, and PRs. Numbering is mandatory and IDs are never reused.
 Decision items use `TGN-D<n>`.
 
-## Open decisions
-
-| ID | Status | Decision | Details |
-| --- | --- | --- | --- |
-| TGN-D3 | ⬜ | Verify the Agent Skills `SKILL.md` standard | Confirm the spec source and which runtimes actually consume it before relying on cross-agent portability. |
-
 ## Phase 1 — CLI core (`tg-notes`)
 
 | ID | Status | Task | Details |
 | --- | --- | --- | --- |
-| TGN-1 | ⬜ | Project scaffolding | `pyproject.toml`, package layout (`tg_notes/`), CLI entrypoint, local config loader, `.gitignore` for secrets and `*.session`. |
 | TGN-2 | ⬜ | Telegram client layer | Telethon client with the sync wrapper, one-time interactive login, session handling (`chmod 600`). |
 | TGN-3 | ⬜ | `tg-notes setup` | Create or attach a private forum supergroup; ensure the `contacts` topic and a default notebook; persist the group id in local config; tag the group (fixed title + pinned marker) for recovery (TGN-D2). |
 | TGN-4 | ⬜ | `tg-notes note add` | Append a note to a notebook topic (create the topic on demand); optional hashtags. |
@@ -61,4 +54,4 @@ Decision items use `TGN-D<n>`.
 
 | ID | Status | Task | Details |
 | --- | --- | --- | --- |
-| TGN-16 | ⬜ | `AGENTS.md` + other-agent wrappers | Canonical rules in `AGENTS.md`; thin wrappers for opencode / Hermes once TGN-D3 is confirmed. |
+| TGN-16 | ⬜ | `AGENTS.md` + other-agent portability | Add `AGENTS.md` (canonical cross-agent rules). Portability confirmed (was TGN-D3): the same `SKILL.md` is read unchanged by OpenCode and ~30 other Agent Skills runtimes, so no per-agent wrapper is needed for the skill — keep the frontmatter to the standard core (`name`, `description`), avoid Claude-only fields. Remaining: per-agent *distribution* only. OpenCode / OpenClaw discover `~/.claude/skills` from dirs (zero effort); Claude via plugin marketplace; Hermes (Nous Research `hermes-agent`) is agentskills.io-compatible but keeps skills in its own `~/.hermes/` store → import the same `SKILL.md` (no rewrite), and it can also call the `tg-notes` CLI via its terminal toolset / MCP. |
