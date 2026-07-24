@@ -13,7 +13,8 @@ all Telegram I/O; thin per-agent Skill wrappers (Claude Code first) add the
 intelligence (composing notes, compiling them per recipient). See
 [docs/architecture.md](docs/architecture.md).
 
-Status: **planning** — no implementation yet. The plan lives in [TODO.md](TODO.md).
+Status: **released** — published to PyPI. Versions live in [CHANGELOG.md](CHANGELOG.md);
+open work in [TODO.md](TODO.md); the feature backlog in [Features.md](Features.md).
 
 ## Language rules (STRICT)
 
@@ -24,30 +25,73 @@ Status: **planning** — no implementation yet. The plan lives in [TODO.md](TODO
   the language they wrote in. This applies only to the live chat, never to anything
   written into the repo.
 
+## Feature backlog — `Features.md` (root)
+
+- Everything the user asks to build, and every "add for brainstorm" idea, is a
+  **numbered** entry in `Features.md` at the repository **root** (never under
+  `docs/`). If a features doc lives under `docs/`, move it to the root.
+- Numbers are **stable and never reused**. Entries are grouped by state:
+  **Current** (in progress) · **Planned** · **Brainstorm** (ideas) · **Delivered**.
+- A new idea from the user lands here first (as Brainstorm or Planned) before it
+  becomes a task in `TODO.md`.
+
 ## Documentation sync (apply without being asked)
 
-Keep docs in lockstep with the code, **in the same change**:
+Keep docs in lockstep with the code, **in the same change** — never wait to be asked:
 
 | What changed | Update |
 |---|---|
-| New or changed feature / behavior | `docs/features.md` + `README.md` |
-| CLI surface (commands, flags) | `README.md` (usage) + `docs/architecture.md` |
+| New/changed feature or behavior | `Features.md` (root) entry + `README.md` |
+| CLI / API / MCP surface (commands, flags, tools) | `README.md` + relevant `docs/*.md` |
 | Architecture, storage schema, data flow, security model | `docs/architecture.md` |
+| A feature is picked up for implementation | its test section in `docs/tests.md` |
 | Any user-visible change | `CHANGELOG.md` under `## [Unreleased]` |
-| Task started / finished / blocked | `TODO.md` status |
+| Task started / finished / blocked, or a test's pass status | `TODO.md` |
+| User asks to build something, or "add for brainstorm" | numbered entry in `Features.md` |
 
 - `CHANGELOG.md` follows [Keep a Changelog](https://keepachangelog.com/) + SemVer.
-- `TODO.md` holds only open/in-progress work; when a task is done and verified, move
-  it out of `TODO.md` into `CHANGELOG.md`.
-- Never mark a task done without confirmation that it actually works.
+- `TODO.md` holds only open/in-progress work and the per-test pass status of the
+  current feature; a done+verified task moves to `CHANGELOG.md` in the same change.
+- Never mark a task done without proof it works — see **Testing policy**.
 
-## Conventions
+## Testing policy (apply without being asked)
 
-- **Secrets never leave the machine.** `api_id`/`api_hash`, the Telethon `*.session`
-  file, and local config are git-ignored. **Notes and contacts live only in Telegram.**
-- The session file grants full account access: `chmod 600`, never committed.
-- Userbot automation is a Telegram-ToS gray area; the tool only publishes the user's
-  own notes/reports and must stay non-spammy.
+**Three test groups:**
+
+- **(a) Fully automated** — unit/integration tests plus all debugging. Run in
+  GitHub Actions CI on every push/PR. Claude **must read and analyze the CI run
+  logs** (`gh run view --log`) for every run — **even when the job is green**.
+- **(b) Dev-machine / AI-sandbox** — tests runnable only on a developer machine
+  (audio/whisper transcription, KeePassXC / Secret Service, live Telegram) or not
+  fully automatable, run in an **isolated sandbox under Claude's control** (see
+  *Testing in a sandbox* below). Claude runs these itself during development, and
+  again after a release once full CI is green.
+- **(c) Human-in-the-loop** — require a human. Claude writes a **methodology** and
+  proposes it to the user to run.
+
+**TDD & flow:**
+
+- For every feature/bug write the automated tests **FIRST** (they must fail), then
+  implement until green. No feature code without a test.
+- A task is **done only when 100% of its features are tested** — every applicable
+  group covered, group-(c) methodology proposed.
+- **Do not start a new feature until the current one is fully tested.**
+
+**Artifacts & structure:**
+
+- When a feature is picked up, immediately add a section to `docs/tests.md` listing
+  its concrete tests, each tagged `(a)`/`(b)`/`(c)`.
+- All test scripts, scenarios, and methodologies (**every group**) live structured
+  under `auto-tests/`. Group-(a) is wired into CI to run automatically. Every
+  scenario/methodology is also **used during development**, not only in CI.
+- `TODO.md` tracks the pass/fail status of each test of the current feature.
+
+**Release gate:**
+
+- Group-(a) must be **green in CI** to release. If CI fails → **no release**; keep
+  fixing until CI is green.
+- After a release (full CI green) Claude re-runs group-(b); any remaining group-(c)
+  tests → methodology handed to the user.
 
 ## Development workflow (autonomous — apply without being asked)
 
@@ -62,6 +106,25 @@ This project is developed by an AI agent under continuous, autonomous iteration.
 - High bar: type hints, docstrings, ruff-clean, meaningful tests. Work like a top-tier engineer + DevOps.
 - Auto-logging: started/ongoing work goes to TODO.md (Current state + phase tables); completed and verified work moves to CHANGELOG.md, in the same change. Never mark a task done without a passing test.
 - Cold-start: keep the top of TODO.md a "Current state / next action" block so a fresh session knows exactly what to do next.
+
+### Per-task lifecycle (MANDATORY — in this order)
+
+1. **Log first.** The task exists in `TODO.md` as `TGN-<n>` before any work begins. If it is not logged, log it first.
+2. **Backlog.** Ensure the feature is a numbered entry in root `Features.md`.
+3. **Test plan.** Add the feature's section to `docs/tests.md` (groups a/b/c).
+4. **Branch.** Create `feature/TGN-<n>-<slug>` off `main`.
+5. **TDD.** Write the failing group-(a) test(s) first; implement until green; commit in small logical units on the branch and push after each.
+6. **Verify.** Group-(a) green in CI (analyze the run logs even when green); run group-(b) in dev/sandbox; update each test's status in `TODO.md`.
+7. **Record.** When done and the full suite is green, move the item from `TODO.md` to `CHANGELOG.md`.
+8. **MR.** Open an MR/PR to `main`; merge with `--no-ff` only when CI is green, then push `main`.
+
+## Conventions
+
+- **Secrets never leave the machine.** `api_id`/`api_hash`, the Telethon `*.session`
+  file, and local config are git-ignored. **Notes and contacts live only in Telegram.**
+- The session file grants full account access: `chmod 600`, never committed.
+- Userbot automation is a Telegram-ToS gray area; the tool only publishes the user's
+  own notes/reports and must stay non-spammy.
 
 ### Testing in a sandbox (mandatory for live tests)
 
