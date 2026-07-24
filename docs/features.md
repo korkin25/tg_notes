@@ -34,3 +34,8 @@
     portable to other agent runtimes.
 11. **Easy to install.** Distributable as a Claude plugin via a git marketplace; the CLI
     via PyPI.
+12. **Interactive pickers.** Omitting the selected value on a human terminal opens a
+    chooser — `send --contact`, `contacts remove`, `secrets migrate --to`, and `notes list
+    --notebook` — using a fuzzy finder (`fzf`/`sk`/`fzy`) when installed, else a numbered
+    menu. It engages only when both stdin and stdout are TTYs and the value was omitted, so
+    scripted/agent invocations that pass the flag are unaffected.

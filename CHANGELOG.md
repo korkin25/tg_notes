@@ -9,6 +9,13 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
+- Interactive pickers for `send --contact`, `contacts remove`, `secrets migrate --to`, and
+  `notes list --notebook` — omit the value in an interactive terminal to choose from a list
+  via a fuzzy finder (`fzf`/`sk`/`fzy`) when one is installed, else a numbered menu. The
+  picker fires only when both stdin and stdout are TTYs *and* the value was not passed on the
+  command line, so scripted/agent use with flags is byte-for-byte unchanged; a non-interactive
+  run without the value fails fast with a clear message (exit 2). `notes list --notebook` still
+  falls back to `daily` when non-interactive or when the pick is cancelled.
 - `tg-notes secrets doctor` — diagnoses the secret store (active backend, a classified
   vault round-trip via `keyring_probe`, the process owning the Secret Service bus, and the
   detected stores) and prints ordered, actionable recommendations: install the

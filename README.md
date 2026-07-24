@@ -124,6 +124,10 @@ tg-notes login
 tg-notes whoami
 ```
 
+Omit `--contact` / `--to` / `--notebook` in an interactive terminal to pick from a list
+(uses `fzf`/`sk`/`fzy` if installed, else a numbered menu); with the flag or when piped,
+behavior is unchanged.
+
 ## Security & Telegram ToS
 
 - Userbot automation is a **gray area of Telegram's ToS**; you run it on your own
