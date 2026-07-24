@@ -1,0 +1,36 @@
+# Voice-enabled local stack for tg_notes — for LOCAL / manual STT testing only.
+#
+# ⚠️  NOT for CI. This builds a heavy image (faster-whisper + ffmpeg via the
+#     EXTRAS=mcp,transcribe / WITH_FFMPEG=1 build args), used for audio-note
+#     auto-transcription. The Whisper model weights are still NOT baked in — they
+#     download on first use into the `models` volume (or preload them once with
+#     `tg-notes` / `pipx inject`).
+#
+# Run:   docker compose -f docker-compose.voice.yml up
+# Seed the session first (see docker-compose.yml).
+
+services:
+  tg-notes-mcp:
+    build:
+      context: .
+      args:
+        EXTRAS: mcp,transcribe
+        WITH_FFMPEG: "1"
+    image: ghcr.io/korkin25/tg-notes:voice
+    ports:
+      - "8000:8000"
+    environment:
+      TG_NOTES_CONFIG_DIR: /config
+      TG_NOTES_MCP_HOST: 0.0.0.0
+      TG_NOTES_MCP_PORT: "8000"
+      # Point the Whisper / HuggingFace caches at the models volume.
+      HF_HOME: /models
+      XDG_CACHE_HOME: /models
+    volumes:
+      - config:/config
+      - models:/models
+    restart: unless-stopped
+
+volumes:
+  config:
+  models:
