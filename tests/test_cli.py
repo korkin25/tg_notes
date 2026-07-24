@@ -31,9 +31,6 @@ def test_build_parser_still_exposes_stub_commands() -> None:
 @pytest.mark.parametrize(
     "argv",
     [
-        ["contacts", "list"],
-        ["contacts", "set", "boss"],
-        ["contacts", "remove", "boss"],
         ["send", "--contact", "boss", "--text-file", "out.txt"],
         ["notebooks", "list"],
     ],
@@ -333,3 +330,94 @@ def test_parse_since_hh_mm_uses_today() -> None:
 def test_parse_since_rejects_garbage() -> None:
     with pytest.raises(ValueError):
         cli._parse_since("not-a-date")
+
+
+# --- contacts (TGN-6) ------------------------------------------------------------
+
+
+def test_contacts_list_command_prints_json(mocker, capsys) -> None:
+    cfg = config.Config(api_id=1, api_hash="h", storage_group_id=-100)
+    mocker.patch("tg_notes.cli.config.load", return_value=cfg)
+    items = [{"key": "boss", "name": None, "chat_id": "@boss", "topic_id": None,
+              "mention": None, "style": None}]
+    lst = mocker.patch("tg_notes.cli.telegram.contacts_list", return_value=items)
+
+    rc = cli.main(["contacts", "list"])
+
+    assert rc == 0
+    lst.assert_called_once_with(cfg)
+    import json as _json
+
+    assert _json.loads(capsys.readouterr().out) == items
+
+
+def test_contacts_set_command_passes_all_fields(mocker) -> None:
+    cfg = config.Config(api_id=1, api_hash="h", storage_group_id=-100)
+    mocker.patch("tg_notes.cli.config.load", return_value=cfg)
+    setter = mocker.patch("tg_notes.cli.telegram.contacts_set", return_value={"created": True})
+
+    rc = cli.main(
+        [
+            "contacts", "set", "boss",
+            "--chat-id", "@boss", "--name", "Alice",
+            "--topic-id", "42", "--mention", "@alice", "--style", "be brief",
+        ]
+    )
+
+    assert rc == 0
+    setter.assert_called_once_with(
+        cfg, "boss", chat_id="@boss", name="Alice", topic_id=42,
+        mention="@alice", style="be brief",
+    )
+
+
+def test_contacts_set_command_defaults_unset_fields_to_none(mocker) -> None:
+    cfg = config.Config(api_id=1, api_hash="h", storage_group_id=-100)
+    mocker.patch("tg_notes.cli.config.load", return_value=cfg)
+    setter = mocker.patch("tg_notes.cli.telegram.contacts_set", return_value={"created": False})
+
+    rc = cli.main(["contacts", "set", "boss", "--style", "new"])
+
+    assert rc == 0
+    setter.assert_called_once_with(
+        cfg, "boss", chat_id=None, name=None, topic_id=None, mention=None, style="new",
+    )
+
+
+def test_contacts_set_command_missing_chat_id_returns_1(mocker) -> None:
+    cfg = config.Config(api_id=1, api_hash="h", storage_group_id=-100)
+    mocker.patch("tg_notes.cli.config.load", return_value=cfg)
+    mocker.patch(
+        "tg_notes.cli.telegram.contacts_set",
+        side_effect=ValueError("a new contact needs --chat-id (where to send)"),
+    )
+
+    assert cli.main(["contacts", "set", "boss"]) == 1
+
+
+def test_contacts_remove_command_prints_result(mocker, capsys) -> None:
+    cfg = config.Config(api_id=1, api_hash="h", storage_group_id=-100)
+    mocker.patch("tg_notes.cli.config.load", return_value=cfg)
+    rm = mocker.patch(
+        "tg_notes.cli.telegram.contacts_remove",
+        return_value={"key": "boss", "removed": True},
+    )
+
+    rc = cli.main(["contacts", "remove", "boss"])
+
+    assert rc == 0
+    rm.assert_called_once_with(cfg, "boss")
+    import json as _json
+
+    assert _json.loads(capsys.readouterr().out) == {"key": "boss", "removed": True}
+
+
+def test_contacts_list_command_not_set_up_returns_4(mocker, capsys) -> None:
+    mocker.patch("tg_notes.cli.config.load", return_value=config.Config())
+    mocker.patch(
+        "tg_notes.cli.telegram.contacts_list",
+        side_effect=telegram.NotSetUpError("run `tg-notes setup` first"),
+    )
+
+    assert cli.main(["contacts", "list"]) == 4
+    assert "setup" in capsys.readouterr().err

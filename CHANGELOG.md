@@ -66,3 +66,14 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   offset) and bounds the messages by date; an unknown notebook yields `[]`. New
   `telegram.notes_list` and a CLI `_parse_since` parser; tests in `tests/test_notes.py`
   and `tests/test_cli.py` (Telethon mocked).
+- Contacts address book (TGN-6): `tg-notes contacts list|set|remove` over the
+  message-per-contact schema in the `contacts` topic. New pure `tg_notes.contacts` module
+  ((de)serializes the `#contact <key>` block; single-line fields, colons preserved) plus
+  `telegram.contacts_list` / `contacts_set` / `contacts_remove`. `set` creates or updates
+  in place (only the given fields override an existing record; a new contact requires
+  `--chat-id`; edits reuse the same message), `remove` deletes the contact's message
+  (missing key is a no-op), `list` returns all contacts as JSON sorted by key. Tests in
+  `tests/test_contacts.py` (pure + Telethon-mocked layer). Refactor: shared
+  `_resolve_store` helper (in `tg_notes.telegram`) and `_handle_store_errors` /
+  `_STORE_ERRORS` (in the CLI) deduplicate the not-set-up / not-configured / not-authorized
+  handling across `note add`, `notes list`, and `contacts`.
