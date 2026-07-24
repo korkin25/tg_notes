@@ -55,6 +55,11 @@ Available so far:
 # Idempotent — safe to re-run.
 tg-notes setup [--notebook <name>]
 
+# Append a note to a notebook topic (creates the topic on demand). Read the text from a
+# file or from stdin (-); attach optional #hashtags. Prints the posted note as JSON.
+tg-notes note add --notebook daily --text-file note.txt --hashtag infra
+echo "quick note" | tg-notes note add --text-file -
+
 # Log in on its own (setup calls this for you; useful to re-authorize a new device).
 # Requires api_id/api_hash in local config; writes a chmod-600 session file.
 tg-notes login

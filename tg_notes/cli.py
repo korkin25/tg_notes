@@ -18,6 +18,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from pathlib import Path
 
 from . import __version__, config, telegram
 
@@ -138,6 +139,43 @@ def _whoami(args: argparse.Namespace) -> int:
     return 0
 
 
+def _read_text_arg(path: str) -> str:
+    """Read note text from a file, or from stdin when ``path`` is ``-``."""
+    if path == "-":
+        return sys.stdin.read()
+    return Path(path).read_text(encoding="utf-8")
+
+
+def _note_add(args: argparse.Namespace) -> int:
+    """Append a note to a notebook topic (TGN-4)."""
+    cfg = config.load()
+    try:
+        text = _read_text_arg(args.text_file)
+    except OSError as exc:
+        sys.stderr.write(f"cannot read note text from {args.text_file}: {exc}\n")
+        return 1
+    try:
+        result = telegram.note_add(
+            cfg, notebook=args.notebook, text=text, hashtags=args.hashtag
+        )
+    except telegram.NotSetUpError as exc:
+        sys.stderr.write(f"{exc}\n")
+        return 4
+    except telegram.NotConfiguredError:
+        _instruct_configure()
+        return 1
+    except telegram.NotAuthorizedError:
+        sys.stderr.write(
+            "not logged in — run `tg-notes login` (or `tg-notes setup`) first\n"
+        )
+        return 3
+    except ValueError as exc:
+        sys.stderr.write(f"{exc}\n")
+        return 1
+    print(json.dumps(result, ensure_ascii=False))
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="tg-notes",
@@ -168,8 +206,16 @@ def build_parser() -> argparse.ArgumentParser:
     note_sub = p_note.add_subparsers(dest="subcommand", metavar="<subcommand>", required=True)
     p_note_add = note_sub.add_parser("add", help="append a note to a notebook")
     p_note_add.add_argument("--notebook", default="daily", help="target notebook topic")
-    p_note_add.add_argument("--text-file", required=True, help="file with the note text")
-    p_note_add.set_defaults(func=_todo("TGN-4"))
+    p_note_add.add_argument(
+        "--text-file", required=True, help="file with the note text (use - for stdin)"
+    )
+    p_note_add.add_argument(
+        "--hashtag",
+        action="append",
+        metavar="TAG",
+        help="append a #hashtag to the note (repeatable)",
+    )
+    p_note_add.set_defaults(func=_note_add)
 
     # notes list (TGN-5)
     p_notes = sub.add_parser("notes", help="query notes")
