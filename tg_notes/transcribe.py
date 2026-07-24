@@ -23,6 +23,7 @@ import shutil
 # Safe: the transcriber binary is resolved via shutil.which / an existing path, invoked with
 # a fixed argument list and no shell, and never interpolates untrusted input (see below).
 import subprocess  # nosec B404
+import sys
 import tempfile
 from pathlib import Path
 
@@ -42,6 +43,13 @@ _CLI_TIMEOUT = 900
 
 #: Default whisper model when the config does not name one.
 _DEFAULT_MODEL = "base"
+
+#: How long (seconds) the one-time engine install may run before we give up. Generous, so a
+#: cold install of faster-whisper (+ its native deps) is not killed midway.
+_INSTALL_TIMEOUT = 1800
+
+#: Guard so we attempt the auto-install of the whisper engine at most once per process.
+_INSTALL_ATTEMPTED = False
 
 
 class TranscriptionUnavailable(Exception):
@@ -104,14 +112,93 @@ def available_transcriber(cfg: object | None = None) -> str | None:
     return None
 
 
+def _autoinstall_enabled(cfg: object | None) -> bool:
+    """Return whether first-run engine auto-install is enabled (default: yes).
+
+    Semantics: ``cfg.transcriber_autoinstall`` of ``None``/absent means enabled; only an
+    explicit ``False`` disables it.
+    """
+    value = getattr(cfg, "transcriber_autoinstall", None) if cfg is not None else None
+    return value is not False
+
+
+def _install_argv() -> list[str]:
+    """Build the argv to install ``faster-whisper`` for the current install context.
+
+    Inside a pipx-managed venv (``"pipx"`` in :data:`sys.prefix`) with a ``pipx`` on
+    ``PATH`` we inject into the app's venv; otherwise we pip-install into the running
+    interpreter's environment.
+    """
+    if "pipx" in sys.prefix and shutil.which("pipx"):
+        return ["pipx", "inject", "tg-notes", _FASTER_WHISPER]
+    return [sys.executable, "-m", "pip", "install", _FASTER_WHISPER]
+
+
+def ensure_engine(cfg: object | None = None) -> str | None:
+    """Return an available transcriber, auto-fetching ``faster-whisper`` once if needed.
+
+    Best-effort and non-raising — used as the entry gate of :func:`transcribe`:
+
+    - if an engine is already available, return its label (nothing to install);
+    - else if auto-install is disabled (``cfg.transcriber_autoinstall is False``), return
+      ``None``;
+    - else attempt a **one-time** (per process) install of ``faster-whisper`` — via
+      ``pipx inject`` in a pipx venv, else ``pip install`` — then re-check and return the
+      label, or ``None`` (with a stderr hint) on failure.
+
+    Never raises: any failure returns ``None`` so the best-effort caller uploads without a
+    caption.
+    """
+    global _INSTALL_ATTEMPTED
+    backend = available_transcriber(cfg)
+    if backend is not None:
+        return backend
+    if not _autoinstall_enabled(cfg):
+        return None
+    if _INSTALL_ATTEMPTED:
+        return None
+    _INSTALL_ATTEMPTED = True
+
+    sys.stderr.write(
+        "tg-notes: first-run — installing the whisper engine (faster-whisper)…\n"
+    )
+    argv = _install_argv()
+    try:
+        # Safe: fixed argv (no shell); the only variable parts are sys.executable / the
+        # resolved `pipx` and constant package name — no untrusted input is interpolated.
+        proc = subprocess.run(  # nosec B603
+            argv, capture_output=True, text=True, timeout=_INSTALL_TIMEOUT, check=False
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        sys.stderr.write(
+            f"tg-notes: could not auto-install the whisper engine ({exc}) — "
+            "install it manually: pipx inject tg-notes faster-whisper\n"
+        )
+        return None
+    if proc.returncode != 0:
+        tail = (proc.stderr or proc.stdout or "").strip()[-500:]
+        sys.stderr.write(
+            f"tg-notes: auto-install of the whisper engine failed (exit "
+            f"{proc.returncode}): {tail} — install it manually: "
+            "pipx inject tg-notes faster-whisper\n"
+        )
+        return None
+    return available_transcriber(cfg)
+
+
 def transcribe(path: str | Path, cfg: object | None = None) -> str:
     """Transcribe an audio file to text using the first available local backend.
 
+    On first use with no engine present this auto-fetches ``faster-whisper`` (best-effort,
+    once per process) via :func:`ensure_engine`; the model itself still downloads on the
+    first :class:`WhisperModel` use.
+
     Raises:
-        TranscriptionUnavailable: if no local engine is available.
+        TranscriptionUnavailable: if no local engine is available (and none could be
+            installed).
         TranscriptionError: if the chosen engine ran but failed.
     """
-    backend = available_transcriber(cfg)
+    backend = ensure_engine(cfg)
     if backend is None:
         raise TranscriptionUnavailable(
             "no local transcription engine — install faster-whisper "

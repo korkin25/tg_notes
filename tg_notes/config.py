@@ -42,6 +42,9 @@ class Config:
     transcriber: str | None = None
     whisper_cmd: str | None = None
     whisper_model: str | None = None
+    #: Auto-fetch the whisper engine (faster-whisper) on the first transcription when none
+    #: is present. ``None``/absent ⇒ enabled; set to ``false`` to disable and never install.
+    transcriber_autoinstall: bool | None = None
 
     @property
     def session(self) -> str:
@@ -65,6 +68,7 @@ def load() -> Config:
         transcriber=data.get("transcriber"),
         whisper_cmd=data.get("whisper_cmd"),
         whisper_model=data.get("whisper_model"),
+        transcriber_autoinstall=data.get("transcriber_autoinstall"),
     )
 
 
@@ -88,11 +92,16 @@ def _dump_toml(cfg: Config) -> str:
         "transcriber": cfg.transcriber,
         "whisper_cmd": cfg.whisper_cmd,
         "whisper_model": cfg.whisper_model,
+        "transcriber_autoinstall": cfg.transcriber_autoinstall,
     }
     for key, value in fields.items():
         if value is None:
             continue
-        if isinstance(value, int) and not isinstance(value, bool):
+        if isinstance(value, bool):
+            # bool is a subclass of int — emit a TOML bool, not a quoted string, so it
+            # round-trips back as a real bool (checked before the int branch below).
+            lines.append(f"{key} = {'true' if value else 'false'}")
+        elif isinstance(value, int):
             lines.append(f"{key} = {value}")
         else:
             escaped = str(value).replace("\\", "\\\\").replace('"', '\\"')

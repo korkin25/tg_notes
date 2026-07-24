@@ -23,9 +23,13 @@
    manual step. It is **pluggable and best-effort**: it uses a whisper CLI
    (whisper.cpp/openai-whisper via `whisper_cmd` or on `PATH`) or the `faster-whisper`
    package, and if no engine is installed (or transcription fails) the file still uploads,
-   just without a caption. Enable an engine with `pipx inject tg-notes faster-whisper` (or
-   the `tg-notes[transcribe]` extra), or point `whisper_cmd` at a whisper binary; `ffmpeg`
-   is required by the whisper engines to decode audio. Control it with
+   just without a caption. On the **first** transcription with no engine present, tg-notes
+   **auto-fetches the whisper engine** (`faster-whisper`) — once per process, best-effort
+   (via `pipx inject` in a pipx install, else `pip install`); disable it with
+   `transcriber_autoinstall = false`, or pre-install the engine yourself with
+   `pipx inject tg-notes faster-whisper` (or the `tg-notes[transcribe]` extra). You can also
+   point `whisper_cmd` at a whisper binary instead; `ffmpeg` is required by the whisper
+   engines to decode audio, and the model itself downloads on first use. Control it with
    `--transcribe`/`--no-transcribe`.
 6. **Address book in Telegram.** A dedicated `contacts` topic holds one message per
    contact (chat, topic, mention, style); editable from the phone.

@@ -90,6 +90,23 @@ def test_transcriber_fields_default_to_none() -> None:
     assert cfg.transcriber is None
     assert cfg.whisper_cmd is None
     assert cfg.whisper_model is None
+    assert cfg.transcriber_autoinstall is None
+
+
+def test_transcriber_autoinstall_round_trips_as_bool(tmp_path: Path, monkeypatch) -> None:
+    # A bool must serialize as a TOML bool (true/false), not a quoted string, so it loads
+    # back as a real bool — exercises the bool branch in _dump_toml.
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    for value in (True, False):
+        config.save(config.Config(api_id=1, api_hash="h", transcriber_autoinstall=value))
+        loaded = config.load()
+        assert loaded.transcriber_autoinstall is value
+
+
+def test_transcriber_autoinstall_absent_loads_none(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    config.save(config.Config(api_id=1, api_hash="h"))  # field left at default
+    assert config.load().transcriber_autoinstall is None
 
 
 def test_config_dir_respects_tg_notes_config_dir(tmp_path: Path, monkeypatch) -> None:

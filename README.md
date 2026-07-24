@@ -97,10 +97,13 @@ tg-notes note add --notebook daily --file ~/clips/demo.mp4 --caption "walkthroug
 # Audio notes auto-transcribe: when --file is audio (.ogg/.opus/.mp3/.m4a/.wav/…) and no
 # --caption is given, tg-notes transcribes it LOCALLY and uses the transcript as the caption
 # (searchable text) — best-effort, so if no engine is installed the file still uploads
-# without a caption. Enable a local engine (both need `ffmpeg` to decode audio):
+# without a caption. On the first transcription with no engine, tg-notes auto-fetches the
+# faster-whisper engine (once, best-effort; disable with transcriber_autoinstall = false).
+# Or pre-install a local engine yourself (both need `ffmpeg` to decode audio):
 #   pipx inject tg-notes faster-whisper        # the faster-whisper backend
 #   # …or set whisper_cmd in config.toml to a whisper.cpp/openai-whisper binary
-# whisper_model (e.g. base/small) picks the model. Force/skip with --transcribe/--no-transcribe.
+# whisper_model (e.g. base/small) picks the model (downloads on first use).
+# Force/skip with --transcribe/--no-transcribe.
 tg-notes note add --notebook daily --file ~/voice/idea.ogg          # caption ← transcript
 tg-notes note add --notebook daily --file ~/voice/idea.ogg --no-transcribe
 

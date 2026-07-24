@@ -54,9 +54,13 @@ CLI handler runs `transcribe.transcribe(path, cfg)` and passes the result into t
 existing `note_add_file` as the caption. Transcription runs only when the file is audio,
 no `--caption` was given, and (in the default *auto* mode) an engine is available; if the
 engine is missing (`TranscriptionUnavailable`) or fails (`TranscriptionError`) the upload
-still happens with no caption and a one-line stderr note. The whisper engines shell out
-to `ffmpeg` to decode audio, and `faster-whisper` downloads its model on first use.
-`transcriber` / `whisper_cmd` / `whisper_model` are non-secret config keys. The MCP
+still happens with no caption and a one-line stderr note. On the first transcription with
+no engine present, `transcribe.ensure_engine(cfg)` **auto-fetches the engine** once per
+process (best-effort: `pipx inject tg-notes faster-whisper` inside a pipx venv, else
+`pip install faster-whisper`), unless `transcriber_autoinstall = false`; a failed install
+never aborts the upload. The whisper engines shell out to `ffmpeg` to decode audio, and
+`faster-whisper` downloads its model on first use. `transcriber` / `whisper_cmd` /
+`whisper_model` / `transcriber_autoinstall` are non-secret config keys. The MCP
 `note_add_file` tool and the capture skill mirror this same best-effort audio
 auto-transcription (an agent may instead pass its own caption to skip it).
 
