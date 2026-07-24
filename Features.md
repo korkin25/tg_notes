@@ -81,3 +81,22 @@ _None yet._
     --notebook` — using a fuzzy finder (`fzf`/`sk`/`fzy`) when installed, else a numbered
     menu. It engages only when both stdin and stdout are TTYs and the value was omitted, so
     scripted/agent invocations that pass the flag are unaffected.
+
+### Deployment & CI (TGN-23 / TGN-24)
+
+16. **`tg-notes-mcp-http`** — MCP server over remote **streamable-HTTP** (TGN-24), so it can
+    run as a networked Deployment (host/port via `TG_NOTES_MCP_HOST`/`TG_NOTES_MCP_PORT`),
+    not only a local stdio subprocess.
+17. **Container image** — multi-stage `Dockerfile` (non-root uid 10000); default runs
+    `tg-notes-mcp-http` on :8000. Published to `ghcr.io/korkin25/tg-notes`.
+18. **Helm chart** (`chart/`) — single-replica Deployment (userbot = one session), config PVC
+    holding the Telethon session, voice-model PVC, TCP probes, optional daily-report CronJob;
+    published as an OCI chart to `ghcr.io/korkin25/charts/tg-notes`.
+19. **Voice-model PVC** — Whisper model kept off the image, on a chart PVC (fetched on first
+    use or preloaded); documented in `chart/README.md`. Identical pattern in jira_nano.
+20. **`docker-compose.yml` + `docker-compose.voice.yml`** — lean local stack + a voice-enabled
+    variant (faster-whisper + ffmpeg; not for CI).
+21. **CI security & quality suite** — checkov, hadolint, trivy, semgrep, radon/xenon +
+    functional MCP-HTTP boot job; image + chart pushed to GHCR on main/tags.
+22. **Env-var reference** (`docs/configuration.md`) + a minimal CI env set in the GitHub
+    Actions environment `ci-functional`.

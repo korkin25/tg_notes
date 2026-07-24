@@ -1,0 +1,30 @@
+# Local run of tg_notes — LEAN image (no voice/STT), the same image CI builds.
+# `docker compose up` builds it and serves the MCP server over streamable-HTTP on
+# http://localhost:8000. Config (including the Telethon *.session credential) is
+# persisted in the `config` volume.
+#
+# First-time setup — seed the session interactively (needs a phone + code):
+#   docker compose run --rm --service-ports tg-notes-mcp tg-notes login
+# Then bring the server up. Notes/contacts live in Telegram, not on disk.
+#
+# For a voice/STT-enabled stack (audio-note transcription; heavy; not for CI)
+# use docker-compose.voice.yml.
+
+services:
+  tg-notes-mcp:
+    build: .
+    image: ghcr.io/korkin25/tg-notes:latest
+    ports:
+      - "8000:8000"
+    environment:
+      TG_NOTES_CONFIG_DIR: /config
+      TG_NOTES_MCP_HOST: 0.0.0.0
+      TG_NOTES_MCP_PORT: "8000"
+    volumes:
+      - config:/config
+      - models:/models
+    restart: unless-stopped
+
+volumes:
+  config:
+  models:

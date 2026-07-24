@@ -34,6 +34,7 @@ Repository = "https://github.com/korkin25/tg_notes"
 [project.scripts]
 tg-notes = "tg_notes.cli:main"
 tg-notes-mcp = "tg_notes.mcp_server:main"
+tg-notes-mcp-http = "tg_notes.mcp_server:run_http"
 
 [tool.hatch.version]
 path = "tg_notes/__init__.py"
@@ -46,3 +47,10 @@ testpaths = ["tests"]
 
 [tool.ruff]
 target-version = "py311"
+
+[tool.bandit]
+# Documented false positives in this codebase:
+#   B104 — tg-notes-mcp-http is a network service that binds all interfaces by
+#          default (0.0.0.0); exposure is controlled by the container/k8s, not
+#          the process. See tg_notes/mcp_server.py:run_http.
+skips = ["B104"]

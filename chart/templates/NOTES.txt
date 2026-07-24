@@ -1,0 +1,21 @@
+tg-notes {{ .Chart.AppVersion }} deployed as {{ include "tg-notes.fullname" . }}.
+
+Image:   {{ include "tg-notes.image" . }}
+Command: {{ .Values.command | join " " }}
+
+⚠️  Seed the Telegram session once (it is a full-account credential):
+
+  kubectl -n {{ .Release.Namespace }} exec -it deploy/{{ include "tg-notes.fullname" . }} -- tg-notes login
+
+The session persists on the "{{ include "tg-notes.fullname" . }}-config" PVC.
+
+Reach the MCP (streamable-HTTP) endpoint from inside the cluster:
+
+  kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "tg-notes.fullname" . }} 8000:{{ .Values.service.port }}
+
+{{- if .Values.voiceModel.enabled }}
+
+Voice / STT: the Whisper model is NOT baked into the image. It is cached on the
+"{{ include "tg-notes.voiceClaimName" . }}" PVC (mounted at {{ .Values.voiceModel.mountPath }}) and
+fetched on first use, or preloaded by devops. See chart/README.md § Voice / STT model.
+{{- end }}

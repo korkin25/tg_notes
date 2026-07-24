@@ -121,14 +121,29 @@ async def send(contact: str, text: str, dry_run: bool = False) -> dict:
 TOOLS = (note_add, note_add_file, notes_list, contacts_list, send)
 
 
-def build_server():
-    """Construct the FastMCP server with the tools registered (needs the ``mcp`` extra)."""
+def build_server(*, host: str | None = None, port: int | None = None):
+    """Construct the FastMCP server with the tools registered (needs the ``mcp`` extra).
+
+    ``host``/``port`` bind the remote streamable-HTTP transport (TGN-24); they are
+    ignored by the default stdio transport.
+    """
     from mcp.server.fastmcp import FastMCP  # optional dep — imported only when running
 
-    server = FastMCP(SERVER_NAME, instructions=INSTRUCTIONS)
+    kwargs: dict[str, object] = {"instructions": INSTRUCTIONS}
+    if host is not None:
+        kwargs["host"] = host
+    if port is not None:
+        kwargs["port"] = port
+    server = FastMCP(SERVER_NAME, **kwargs)
     for tool in TOOLS:
         server.tool()(tool)
     return server
+
+
+_MCP_MISSING = (
+    "the MCP server needs the 'mcp' extra — install with "
+    '`pipx install "tg-notes[mcp]"`\n'
+)
 
 
 def main() -> int:
@@ -136,12 +151,30 @@ def main() -> int:
     try:
         server = build_server()
     except ImportError:
-        sys.stderr.write(
-            "the MCP server needs the 'mcp' extra — install with "
-            '`pipx install "tg-notes[mcp]"`\n'
-        )
+        sys.stderr.write(_MCP_MISSING)
         return 1
     server.run()  # stdio transport by default
+    return 0
+
+
+def run_http() -> int:
+    """Console entrypoint: serve the MCP server over remote streamable-HTTP (TGN-24).
+
+    Host/port come from ``TG_NOTES_MCP_HOST`` (default ``0.0.0.0``) and
+    ``TG_NOTES_MCP_PORT`` (default ``8000``) so it can run as a networked service
+    (e.g. a Kubernetes Deployment) rather than a local stdio subprocess.
+    """
+    try:
+        server = build_server(
+            # Bind all interfaces by default: this runs as a container/Deployment
+            # whose network exposure is controlled by k8s, not the process.
+            host=os.environ.get("TG_NOTES_MCP_HOST", "0.0.0.0"),
+            port=int(os.environ.get("TG_NOTES_MCP_PORT", "8000")),
+        )
+    except ImportError:
+        sys.stderr.write(_MCP_MISSING)
+        return 1
+    server.run(transport="streamable-http")
     return 0
 
 
