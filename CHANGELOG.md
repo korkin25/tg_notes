@@ -9,6 +9,11 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
+- `docs/sandbox-testing.md` — a protocol for isolated end-to-end testing of
+  `setup`/`secrets doctor`/`secrets migrate`/pickers via `TG_NOTES_CONFIG_DIR` +
+  `TG_NOTES_KEYRING_SERVICE`, so a throwaway install never touches the real
+  config/session/vault (with before/after invariants on the real config + `tg-notes`
+  keyring entries).
 - `TG_NOTES_CONFIG_DIR` and `TG_NOTES_KEYRING_SERVICE` env vars for an isolated sandbox
   install: `TG_NOTES_CONFIG_DIR` overrides the exact config directory (its own `config.toml`
   + `*.session`, taking precedence over XDG), and `TG_NOTES_KEYRING_SERVICE` overrides the
