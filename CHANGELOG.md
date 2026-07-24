@@ -7,6 +7,14 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Changed
+
+- Expanded `AGENTS.md` (TGN-16) with the concrete shipped pieces (the `tg-notes` CLI on
+  PyPI + the `tg-notes` / `tg-notes-send` skills) and per-agent distribution notes (Claude
+  Code plugin marketplace, OpenCode/OpenClaw `~/.claude/skills` discovery, Hermes import).
+  Cross-agent portability confirmed (TGN-D3): the same `SKILL.md` files are read unchanged
+  by every Agent-Skills runtime; only distribution differs.
+
 ### Fixed
 
 - CI: upgrade `pip`/`setuptools` before `pip-audit` so it no longer flags the runner's

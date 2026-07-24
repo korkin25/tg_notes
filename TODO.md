@@ -22,9 +22,11 @@ live in `docs/`; stages, current status, and checklists are tracked here. Done t
 - CI is green on GitHub (fixed a pip-audit false-positive on the runner's `setuptools`).
 - Logged TGN-18 (pluggable secrets backend — Secret Service/keyring incl. KeePassXC,
   `StringSession` in the vault) as later work; the file backend stays the default.
-- **NEXT (optional):** TGN-17 (local stdio MCP adapter), TGN-15 (submit to a community
-  marketplace, later), TGN-16 (`AGENTS.md` cross-agent), TGN-18 (secrets backend). Core
-  product (Phases 1–3) is shipped; remaining items are reach/hardening.
+- TGN-16 done: `AGENTS.md` expanded with the shipped pieces + per-agent distribution
+  (Phase 4 complete). TGN-15 repo-side ready (submission is a user web action).
+- **NEXT (working through remaining in order):** TGN-17 (local stdio MCP adapter), then
+  TGN-18 (secrets backend, deferred). Core product (Phases 1–4) is shipped; these broaden
+  reach / harden.
 
 ## Legend
 
@@ -59,14 +61,12 @@ Complete — all rows moved to `CHANGELOG.md`.
 
 | ID | Status | Task | Details |
 | --- | --- | --- | --- |
-| TGN-15 | ⬜ | Submit to community marketplace | Validate with `claude plugin validate .` (done — passes), then submit via the console form. Later. |
-| TGN-17 | ⬜ | Local MCP adapter | Expose the core as a local stdio MCP server (official mcp / FastMCP) alongside the CLI: tools note_add / notes_list / contacts_list / send. Same core, second frontend; broadens reach to GUI clients (Claude Desktop, ChatGPT) that cannot shell out. Session/secrets stay local (stdio only, not hosted). |
+| TGN-15 | 🟡 | Submit to community marketplace | Repo-side ready: `claude plugin validate . --strict` passes, plugin is git-installable from `korkin25/tg_notes`. Remaining is a **user web action** — submit via the Anthropic console/marketplace form. Later, optional. |
+| TGN-17 | ⬜ | Local MCP adapter | Expose the core as a local stdio MCP server (official `mcp` / FastMCP) alongside the CLI: tools note_add / notes_list / contacts_list / send. Same core, second frontend; broadens reach to GUI clients (Claude Desktop, ChatGPT) that cannot shell out. Session/secrets stay local (stdio only, not hosted). |
 
 ## Phase 4 — Multi-agent portability
 
-| ID | Status | Task | Details |
-| --- | --- | --- | --- |
-| TGN-16 | ⬜ | `AGENTS.md` + other-agent portability | Add `AGENTS.md` (canonical cross-agent rules). Portability confirmed (was TGN-D3): the same `SKILL.md` is read unchanged by OpenCode and ~30 other Agent Skills runtimes, so no per-agent wrapper is needed for the skill — keep the frontmatter to the standard core (`name`, `description`), avoid Claude-only fields. Remaining: per-agent *distribution* only. OpenCode / OpenClaw discover `~/.claude/skills` from dirs (zero effort); Claude via plugin marketplace; Hermes (Nous Research `hermes-agent`) is agentskills.io-compatible but keeps skills in its own `~/.hermes/` store → import the same `SKILL.md` (no rewrite), and it can also call the `tg-notes` CLI via its terminal toolset / MCP. |
+Complete — TGN-16 (`AGENTS.md` + per-agent distribution) moved to `CHANGELOG.md`.
 
 ## Deferred
 
