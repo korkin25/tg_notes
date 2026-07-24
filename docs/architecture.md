@@ -66,6 +66,15 @@ Editing a contact means editing its message — which is also possible from the 
   truth for which group is the store.
 - Notes and contacts live **only** in Telegram.
 
+`tg-notes setup` drives first-run onboarding so no manual config editing is needed: if
+`api_id`/`api_hash` are missing it prompts for them and writes them to config (mode 600);
+if the device is not logged in it runs the interactive `login`, then provisions the store.
+A **pluggable secrets backend** is planned (TGN-18): the file backend above stays the
+zero-dependency default, with an opt-in Secret Service backend (`keyring` — KeePassXC,
+gnome-keyring, KWallet, macOS Keychain, …) that holds the session as a Telethon
+`StringSession`. The default path must never require an interactive vault unlock, so
+scheduled/unattended runs keep working.
+
 `setup` also tags the store with a fixed title and a marker in its pinned message.
 If the local config is ever lost (e.g. a new machine), the group can be re-discovered
 by that marker and its id rewritten to config. Discovery-by-name is a **recovery path**,

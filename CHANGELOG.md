@@ -38,3 +38,17 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Test suite under `tests/` (pytest + pytest-mock): config round-trip / file mode / session
   path, the Telegram layer with Telethon fully mocked (offline), and the CLI argument
   surface. Pytest and ruff config added to `pyproject.toml`.
+- Storage provisioning (TGN-3): `tg-notes setup` creates (or idempotently attaches to) the
+  private forum supergroup that stores notes. It ensures the `contacts` topic and a default
+  `daily` notebook topic (override with `--notebook`), pins a recovery marker in the group
+  so a lost store can be re-discovered, and persists the resolved group id to local config.
+  New `telegram.setup` plus helpers (`_resolve_or_create` / `_create_storage_group` /
+  `_ensure_topics` / `_pin_marker`) built on Telethon's forum raw API
+  (`CreateChannelRequest(megagroup=True, forum=True)`, `CreateForumTopicRequest`,
+  `GetForumTopicsRequest`); tests in `tests/test_setup.py` with Telethon fully mocked.
+  `setup` drives first-run onboarding itself: when `api_id`/`api_hash` are missing it
+  prompts for them and saves them to local config (mode 600); when the device is not
+  logged in it runs the interactive `login` (phone → code → 2FA) and retries the
+  provisioning. If the prompt is left blank (or the values are unusable) it falls back to
+  printing step-by-step manual guidance (my.telegram.org → config path → `chmod 600` →
+  `login` → re-run) and exits nonzero.

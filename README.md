@@ -47,7 +47,15 @@ git marketplace. More usage lands here as commands are implemented.
 Available so far:
 
 ```bash
-# One-time interactive login (prompts for phone number, code, and 2FA if enabled).
+# One-time: create (or attach to) the private forum supergroup that stores your notes.
+# On first run it walks you through onboarding — prompts for your api_id/api_hash
+# (get them at https://my.telegram.org), saves them to local config (chmod 600), and
+# runs the interactive login (phone → code → 2FA). Then it ensures the `contacts` topic
+# and a default `daily` notebook, pins a recovery marker, and saves the group id.
+# Idempotent — safe to re-run.
+tg-notes setup [--notebook <name>]
+
+# Log in on its own (setup calls this for you; useful to re-authorize a new device).
 # Requires api_id/api_hash in local config; writes a chmod-600 session file.
 tg-notes login
 

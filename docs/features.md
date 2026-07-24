@@ -27,7 +27,9 @@
 ## Tooling & distribution
 
 9. **Standalone CLI (`tg-notes`).** Does all Telegram I/O; usable on its own or from a
-   scheduler.
+   scheduler. `tg-notes setup` provisions the store idempotently — creates or attaches
+   the private forum supergroup, ensures the `contacts` topic and a default notebook,
+   and pins a recovery marker so the group can be re-found if local config is lost.
 10. **Agent Skills.** Drive the CLI and do the writing/summarizing — Claude Code first,
     portable to other agent runtimes.
 11. **Easy to install.** Distributable as a Claude plugin via a git marketplace; the CLI
