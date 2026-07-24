@@ -6,20 +6,15 @@ live in `docs/`; stages, current status, and checklists are tracked here. Done t
 
 ## Current state / next action
 
-- Branch: `feature/tgn-3` (off `main`).
-- TGN-1 (project scaffolding) and TGN-2 (Telethon client layer + login/whoami) — done,
-  in `CHANGELOG.md`. TGN-2 verified end-to-end: `tg-notes whoami` returns the real
-  account (@korkin25).
-- TGN-3 (`tg-notes setup`) — **implemented** on `feature/tgn-3`: `telegram.setup` +
-  helpers, the `setup` CLI command, and first-run onboarding (setup prompts for
-  `api_id`/`api_hash`, saves them 600, runs `login`, then provisions); 40 tests green
-  (Telethon mocked), ruff + bandit clean.
+- Branch: `main` (feature/tgn-3 merged).
+- TGN-1, TGN-2, TGN-3 — done, in `CHANGELOG.md`. TGN-3 verified end-to-end on the real
+  account (@korkin25): first run created the storage group `-1004432534270` («tg-notes
+  storage», topics `contacts`/`daily`) via onboarding; a second run attached idempotently
+  (`created: false`, same id, no duplicate).
 - Logged TGN-18 (pluggable secrets backend — Secret Service/keyring incl. KeePassXC,
   `StringSession` in the vault) as later work; the file backend stays the default.
-- **NEXT ACTION:** live-verify TGN-3 by running `tg-notes setup` against the real account
-  (onboarding → forum supergroup, `contacts` + `daily` topics, pinned marker). Once
-  confirmed working, merge `feature/tgn-3` → `main`, move TGN-3 to `CHANGELOG.md` as ✅,
-  and start TGN-4 (`note add`). Do not mark TGN-3 done before that verification.
+- **NEXT:** TGN-4 (`tg-notes note add`) — start on a new `feature/tgn-4` branch (TDD):
+  append a note to a notebook topic (create the topic on demand), optional hashtags.
 
 ## Legend
 
@@ -40,14 +35,12 @@ Decision items use `TGN-D<n>`.
 
 ## Current work
 
-- **TGN-3 🟡** — `tg-notes setup` implemented on `feature/tgn-3`, tests green; awaiting
-  live verification against the real account before merge (see "Current state" above).
+_None in progress. Next up: TGN-4 (see Phase 1)._
 
 ## Phase 1 — CLI core (`tg-notes`)
 
 | ID | Status | Task | Details |
 | --- | --- | --- | --- |
-| TGN-3 | 🟡 | `tg-notes setup` | Create or attach a private forum supergroup; ensure the `contacts` topic and a default notebook; persist the group id in local config; tag the group (fixed title + pinned marker) for recovery (TGN-D2). Drives first-run onboarding (prompts `api_id`/`api_hash`, saves 600, runs `login`, retries). Implemented + tests green; pending live verification. |
 | TGN-18 | ⬜ | Pluggable secrets backend (later) | Abstract secret storage behind a backend interface: **file** (default — `config.toml` 600 + `*.session`) and an **opt-in Secret Service** backend via `keyring`/`secretstorage`, auto-detected when a provider is present (KeePassXC, gnome-keyring, KWallet; macOS Keychain / Windows Cred Manager). Store the Telethon session as a `StringSession` in the vault (highest-value secret) instead of a file. Must keep unattended runs working (scheduled daily-report): the default path never requires an interactive master-password unlock. Deferred by agreement. |
 | TGN-4 | ⬜ | `tg-notes note add` | Append a note to a notebook topic (create the topic on demand); optional hashtags. |
 | TGN-5 | ⬜ | `tg-notes notes list` | Fetch raw notes from a notebook within a time range (feeds compilation). |
