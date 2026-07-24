@@ -6,18 +6,19 @@ live in `docs/`; stages, current status, and checklists are tracked here. Done t
 
 ## Current state / next action
 
-- Branch: `main` (feature/tgn-7 merged).
-- TGN-1..TGN-7 — done, in `CHANGELOG.md`. TGN-7 verified end-to-end on the real account
-  (@korkin25), tested safely against Saved Messages (`me`) and a storage-group topic:
-  dry-run (compose only), real send with mention prepended, forum-topic `reply_to`
-  (message confirmed via `notes list`), plus contact-not-found (5), empty text (1),
-  unreadable file (1), and not-set-up (4) / not-configured (1) / not-authorized (3).
-  Sent messages + test contacts cleaned up.
+- Branch: `main` (feature/tgn-8 merged).
+- **Phase 1 (CLI core) is COMPLETE.** TGN-1..TGN-8 done, in `CHANGELOG.md`, each verified
+  end-to-end on the real account (@korkin25). Full command surface: `setup`, `login`,
+  `whoami`, `note add`, `notes list`, `contacts list/set/remove`, `send`, `notebooks list`.
+  121 tests green, ruff + bandit clean.
+- TGN-8 verified live: notebooks list excludes `General`/`contacts`, sorts, picks up a new
+  notebook; not-set-up → 4. Temp notebook cleaned up.
 - Logged TGN-18 (pluggable secrets backend — Secret Service/keyring incl. KeePassXC,
   `StringSession` in the vault) as later work; the file backend stays the default.
-- **NEXT:** TGN-8 (`tg-notes notebooks list`) — start on a new `feature/tgn-8` branch
-  (TDD): list the notebook topics of the storage group (last command in Phase 1). Likely a
-  thin wrapper over `_list_topics`, excluding `General`/`contacts`.
+- **NEXT: Phase 2 — the Claude Code Skill** (TGN-9 capture, TGN-10 compile & send, TGN-11
+  daily-report preset). This is where the "intelligence" lives (composing/compiling notes)
+  and differs in kind from the CLI work — worth aligning on the Skill's behavior/confirm
+  flow before building. Start with TGN-9 on `feature/tgn-9`.
 
 ## Legend
 

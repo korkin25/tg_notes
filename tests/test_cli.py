@@ -22,20 +22,10 @@ def test_build_parser_exposes_login_and_whoami() -> None:
     assert "whoami" in names
 
 
-def test_build_parser_still_exposes_stub_commands() -> None:
+def test_build_parser_exposes_all_commands() -> None:
     names = _command_names(cli.build_parser())
 
     assert {"setup", "note", "notes", "contacts", "send", "notebooks"} <= names
-
-
-@pytest.mark.parametrize(
-    "argv",
-    [
-        ["notebooks", "list"],
-    ],
-)
-def test_unimplemented_stubs_return_exit_code_2(argv: list[str]) -> None:
-    assert cli.main(argv) == 2
 
 
 def test_setup_command_ready_persists_group_id(mocker) -> None:
@@ -511,4 +501,33 @@ def test_send_command_not_set_up_returns_4(mocker, tmp_path, capsys) -> None:
     rc = cli.main(["send", "--contact", "boss", "--text-file", str(out)])
 
     assert rc == 4
+    assert "setup" in capsys.readouterr().err
+
+
+# --- notebooks list (TGN-8) ------------------------------------------------------
+
+
+def test_notebooks_list_command_prints_json(mocker, capsys) -> None:
+    cfg = config.Config(api_id=1, api_hash="h", storage_group_id=-100)
+    mocker.patch("tg_notes.cli.config.load", return_value=cfg)
+    items = [{"name": "daily", "topic_id": 5}]
+    lst = mocker.patch("tg_notes.cli.telegram.notebooks_list", return_value=items)
+
+    rc = cli.main(["notebooks", "list"])
+
+    assert rc == 0
+    lst.assert_called_once_with(cfg)
+    import json as _json
+
+    assert _json.loads(capsys.readouterr().out) == items
+
+
+def test_notebooks_list_command_not_set_up_returns_4(mocker, capsys) -> None:
+    mocker.patch("tg_notes.cli.config.load", return_value=config.Config())
+    mocker.patch(
+        "tg_notes.cli.telegram.notebooks_list",
+        side_effect=telegram.NotSetUpError("run `tg-notes setup` first"),
+    )
+
+    assert cli.main(["notebooks", "list"]) == 4
     assert "setup" in capsys.readouterr().err
