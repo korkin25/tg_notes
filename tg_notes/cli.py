@@ -430,9 +430,16 @@ def _secrets_recommendations(state: dict) -> list[str]:
             )
         elif kind == "locked":
             recs.append(
-                "The vault confirms every access — in KeePassXC Settings → Secret Service "
-                "Integration, turn OFF 'confirm when passwords are retrieved by clients' "
-                "(otherwise every read prompts and unattended runs break)."
+                "The vault confirms every access, and KeePassXC ties that grant to the "
+                "short-lived D-Bus connection — so a fresh CLI run re-prompts each time and via "
+                "keyring usually fails (persistent per-app authorization is unimplemented, "
+                "keepassxc#6458). Practical fix: in KeePassXC expose a DEDICATED group holding "
+                "only tg-notes' secrets (Database Settings → Secret Service Integration → "
+                "'Expose entries under this group'), then turn OFF 'confirm when passwords are "
+                "retrieved by clients' (Settings → Secret Service Integration). Confirmation is "
+                "app-global, so the dedicated group keeps the always-readable surface limited to "
+                "the tg-notes session — the same trust boundary as the on-disk session file. See "
+                "docs/keepassxc.md."
             )
         elif kind and kind.startswith("error:"):
             recs.append(

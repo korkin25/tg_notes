@@ -18,6 +18,11 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   keyring` now runs the same pre-flight and prints those recommendations instead of a
   generic error when the vault isn't ready, and `setup` ends with a tip pointing at
   `secrets doctor`.
+- `docs/keepassxc.md` — a guide to using KeePassXC as tg-notes' secret store: handing
+  `org.freedesktop.secrets` over from gnome-keyring (three reversible user-level changes
+  + revert), exposing a dedicated minimal group, the per-connection confirmation model
+  (why a short-lived CLI re-prompts / locks under `ConfirmAccessItem`, keepassxc#6458),
+  the resulting security model, and the `secrets doctor`/`migrate` workflow.
 - `tg-notes secrets status` now lists the detected secret stores (`available_stores`),
   each annotated with whether it serves the Secret Service or is merely running —
   gnome-keyring, KeePassXC, KWallet/ksecretd — so it's clear which vault the keyring
@@ -47,6 +52,12 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Changed
 
+- `secrets doctor`'s "locked" recommendation now explains the KeePassXC
+  per-connection-grant limitation (each grant is bound to a short-lived D-Bus connection,
+  so a fresh CLI run re-prompts and via keyring usually fails; persistent per-app
+  authorization is unimplemented, keepassxc#6458) and steers to a dedicated exposed group
+  holding only tg-notes' secrets plus confirmation OFF — the same trust boundary as the
+  on-disk session file. Points at `docs/keepassxc.md`.
 - Expanded `AGENTS.md` (TGN-16) with the concrete shipped pieces (the `tg-notes` CLI on
   PyPI + the `tg-notes` / `tg-notes-send` skills) and per-agent distribution notes (Claude
   Code plugin marketplace, OpenCode/OpenClaw `~/.claude/skills` discovery, Hermes import).
