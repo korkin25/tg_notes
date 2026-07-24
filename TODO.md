@@ -13,17 +13,16 @@ live in `docs/`; stages, current status, and checklists are tracked here. Done t
   121 tests green, ruff + bandit clean.
 - TGN-8 verified live: notebooks list excludes `General`/`contacts`, sorts, picks up a new
   notebook; not-set-up → 4. Temp notebook cleaned up.
-- TGN-9 (capture skill) — done, in `CHANGELOG.md`. `skills/tg-notes/SKILL.md` verified
-  live (verbatim + session-summary modes both filed and read back). Retired the old local
-  `report`/`report-send` skills and deleted their orphaned `~/.claude/report-send.*`
-  config/session (agreed): tg_notes fully replaces them.
+- **Phase 2 (the Claude Code Skill) is COMPLETE.** TGN-9 capture (`skills/tg-notes/`),
+  TGN-10 compile & send + TGN-11 daily preset (`skills/tg-notes-send/`) — all verified live
+  on the real account. Together they replace the retired `report`/`report-send` pair,
+  Telegram-native. Their orphaned `~/.claude/report-send.*` config/session were deleted.
 - Logged TGN-18 (pluggable secrets backend — Secret Service/keyring incl. KeePassXC,
   `StringSession` in the vault) as later work; the file backend stays the default.
-- **NEXT:** TGN-10 (compile & send flow) — the send half of the skill: read raw notes
-  (`notes list`), rewrite per the contact's `style`, show a draft + confirm, then
-  `tg-notes send` (use `--dry-run` for the preview). Succeeds the retired `report-send`.
-  Note: the skill drives the `tg-notes` CLI, which must be on PATH to run for real
-  (currently only in the repo `.venv`) — a distribution step (TGN-12 pipx/PyPI).
+- **NEXT (agreed): dev-install** so the skills work in the user's own sessions — symlink
+  `skills/tg-notes` + `skills/tg-notes-send` into `~/.claude/skills`, and put `tg-notes`
+  on PATH (`pipx install -e .` or symlink `.venv/bin/tg-notes` → `~/.local/bin`). Then
+  Phase 3 packaging (TGN-12 PyPI, TGN-13/14 plugin + marketplace).
 
 ## Legend
 
@@ -44,7 +43,7 @@ Decision items use `TGN-D<n>`.
 
 ## Current work
 
-_None in progress. Next up: TGN-10 (see Phase 2)._
+_None in progress. Next up: dev-install, then Phase 3 (packaging)._
 
 ## Phase 1 — CLI core (`tg-notes`)
 
@@ -52,10 +51,7 @@ Complete — all rows moved to `CHANGELOG.md`.
 
 ## Phase 2 — Claude Code Skill
 
-| ID | Status | Task | Details |
-| --- | --- | --- | --- |
-| TGN-10 | ⬜ | Compile & send flow | Read raw notes (`notes list`), rewrite per the contact `style`, show a draft + confirm, call `send` (preview via `--dry-run`). Succeeds the retired `report-send`. |
-| TGN-11 | ⬜ | Daily-report preset | Notes since 00:00 → compile → send. |
+Complete — all rows moved to `CHANGELOG.md`.
 
 ## Phase 3 — Packaging & distribution
 
