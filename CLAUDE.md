@@ -62,3 +62,22 @@ This project is developed by an AI agent under continuous, autonomous iteration.
 - High bar: type hints, docstrings, ruff-clean, meaningful tests. Work like a top-tier engineer + DevOps.
 - Auto-logging: started/ongoing work goes to TODO.md (Current state + phase tables); completed and verified work moves to CHANGELOG.md, in the same change. Never mark a task done without a passing test.
 - Cold-start: keep the top of TODO.md a "Current state / next action" block so a fresh session knows exactly what to do next.
+
+### Testing in a sandbox (mandatory for live tests)
+
+Any test that touches the real config, the real keyring, or Telegram MUST run in an
+**isolated sandbox**, never against your day-to-day install. The real
+`~/.config/tg-notes`, the real keyring (`tg-notes` namespace), and the real storage group
+`-1004432534270` must stay untouched.
+
+- Use `scripts/sandbox.py` — `setup` seeds a throwaway config dir (`$TG_NOTES_SANDBOX_DIR`
+  or `~/.config/tg-notes-sandbox`, file backend, a copy of the real session) and creates a
+  **dedicated test group** (a fresh `-100…` id, never the real one); `run -- <cmd>` runs a
+  command against it; `pytest -- <args>` runs the gated live tests (`TG_NOTES_LIVE=1`)
+  there; `reset` deletes it. All idempotent.
+- Or follow the manual protocol: prefix every command with `TG_NOTES_CONFIG_DIR=<sandbox>`
+  (and `TG_NOTES_KEYRING_SERVICE=tg-notes-sandbox` for keyring tests) against a dedicated
+  group. See [docs/sandbox-testing.md](docs/sandbox-testing.md).
+- Unit tests are mocked and already isolated — they must never reach real config, keyring,
+  or network. The sandbox session file is a full-access credential: `chmod 600`, outside
+  the repo, never committed.

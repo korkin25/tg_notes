@@ -6,6 +6,52 @@ that never touches your real config, session, or vault. Use it whenever you want
 verify the onboarding / secrets flows on the real account without risking the crown-jewel
 secrets you use day to day.
 
+> **Rule (see [CLAUDE.md](../CLAUDE.md)):** every live / integration test MUST run in this
+> sandbox. The real `~/.config/tg-notes`, the real keyring (`tg-notes` namespace), and the
+> real storage group `-1004432534270` must stay untouched. Unit tests are mocked and
+> already isolated.
+
+## Quick start — `scripts/sandbox.py`
+
+`scripts/sandbox.py` automates the whole sandbox lifecycle so you never have to wire the
+env vars by hand:
+
+```sh
+scripts/sandbox.py setup                    # ensure the sandbox; prints the dir, group id, export line
+scripts/sandbox.py run -- tg-notes notes list --notebook daily   # run any command in the sandbox
+scripts/sandbox.py pytest -- tests/test_live_media.py -v         # gated live tests (TG_NOTES_LIVE=1)
+scripts/sandbox.py reset                    # delete the sandbox so the next setup is fresh
+```
+
+- **`setup`** is idempotent. On first run it: reads the REAL `api_id` (from `config.load()`)
+  and the REAL `api_hash` + Telethon session string (from the `tg-notes` keyring namespace,
+  with `TG_NOTES_KEYRING_SERVICE` unset while reading); writes a sandbox config
+  (`$TG_NOTES_SANDBOX_DIR` or `~/.config/tg-notes-sandbox`) with `secrets_backend = "file"`;
+  materializes the session on disk there (`secrets._write_file_session`, `chmod 600`); then
+  runs `tg-notes setup` under `TG_NOTES_CONFIG_DIR=<sandbox>` to create a **dedicated test
+  group** — a fresh `-100…` id, never the real storage group. If the sandbox config already
+  has a `storage_group_id`, it is reused and nothing happens.
+- **`run -- <cmd>`** ensures the sandbox, then execs `<cmd>` with
+  `TG_NOTES_CONFIG_DIR=<sandbox>` in the environment.
+- **`pytest -- <args>`** ensures the sandbox, then runs `.venv/bin/pytest` with
+  `TG_NOTES_LIVE=1` and `TG_NOTES_CONFIG_DIR=<sandbox>` so the gated live tests execute
+  against the sandbox store.
+- **`reset`** deletes the sandbox config dir (and its session file) so the next `setup`
+  provisions a brand-new group.
+
+**Why the file backend** (not keyring) inside the sandbox: with the keyring backend
+`tg-notes setup` re-prompts for the `api_hash` — config-level `is_configured()` can't see
+the vault — and blocks. The file backend makes `setup` fully non-interactive, so scripted
+and agent runs never hang.
+
+**SECURITY:** the sandbox session file is a **copy of your real Telethon session** and grants
+full account access. It is written `chmod 600` and lives under the sandbox dir OUTSIDE the
+repo. Never commit it, never move it into the working tree, and `reset` it when done.
+
+The rest of this document is the underlying **env-var protocol** the helper is built on —
+use it directly when you need finer control (e.g. exercising the keyring backend in a
+separate `tg-notes-sandbox` namespace).
+
 ## Isolation via two env vars
 
 Both are read at runtime; with neither set, tg-notes behaves exactly as before (config
