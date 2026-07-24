@@ -1,0 +1,24 @@
+{{- if and .Values.voiceModel.enabled (not .Values.voiceModel.existingClaim) -}}
+# Voice / STT (Whisper) model cache. Created once; kept across pod restarts.
+# The model is fetched on first use into this volume, or preloaded by devops.
+# See chart/README.md § Voice / STT model.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "tg-notes.voiceClaimName" . }}
+  labels:
+    {{- include "tg-notes.labels" . | nindent 4 }}
+  {{- with .Values.voiceModel.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  accessModes:
+    {{- toYaml .Values.voiceModel.accessModes | nindent 4 }}
+  {{- if .Values.voiceModel.storageClass }}
+  storageClassName: {{ .Values.voiceModel.storageClass }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.voiceModel.size }}
+{{- end }}

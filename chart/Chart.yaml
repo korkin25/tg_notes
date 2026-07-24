@@ -1,0 +1,18 @@
+---
+apiVersion: v2
+name: tg-notes
+description: tg_notes — notes → compile → publish via a private Telegram group; runs the MCP server over streamable-HTTP.
+type: application
+# Chart version — bump on chart changes. appVersion tracks the app release.
+version: 0.1.0
+appVersion: "0.1.2"
+home: https://github.com/korkin25/tg_notes
+sources:
+  - https://github.com/korkin25/tg_notes
+keywords:
+  - telegram
+  - notes
+  - mcp
+  - userbot
+maintainers:
+  - name: korkin25

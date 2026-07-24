@@ -1,0 +1,66 @@
+{{- if .Values.cronJob.enabled -}}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "tg-notes.fullname" . }}-daily-report
+  labels:
+    {{- include "tg-notes.labels" . | nindent 4 }}
+spec:
+  schedule: {{ .Values.cronJob.schedule | quote }}
+  concurrencyPolicy: {{ .Values.cronJob.concurrencyPolicy }}
+  successfulJobsHistoryLimit: {{ .Values.cronJob.successfulJobsHistoryLimit }}
+  failedJobsHistoryLimit: {{ .Values.cronJob.failedJobsHistoryLimit }}
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            {{- include "tg-notes.selectorLabels" . | nindent 12 }}
+        spec:
+          serviceAccountName: {{ include "tg-notes.serviceAccountName" . }}
+          restartPolicy: {{ .Values.cronJob.restartPolicy }}
+          {{- with .Values.imagePullSecrets }}
+          imagePullSecrets:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          securityContext:
+            {{- toYaml .Values.podSecurityContext | nindent 12 }}
+          containers:
+            - name: daily-report
+              image: {{ include "tg-notes.image" . }}
+              imagePullPolicy: {{ .Values.image.pullPolicy }}
+              securityContext:
+                {{- toYaml .Values.securityContext | nindent 16 }}
+              command:
+                {{- toYaml .Values.cronJob.command | nindent 16 }}
+              {{- with .Values.cronJob.args }}
+              args:
+                {{- toYaml . | nindent 16 }}
+              {{- end }}
+              envFrom:
+                - configMapRef:
+                    name: {{ include "tg-notes.fullname" . }}-env
+                {{- if .Values.envFrom.secret.enabled }}
+                - secretRef:
+                    name: {{ .Values.envFrom.secret.name | default (printf "%s-secrets" (include "tg-notes.fullname" .)) }}
+                {{- end }}
+              volumeMounts:
+                {{- if .Values.persistence.enabled }}
+                - name: config
+                  mountPath: {{ .Values.persistence.mountPath }}
+                {{- end }}
+                - name: tmp
+                  mountPath: /tmp
+                - name: home
+                  mountPath: /home/app
+          volumes:
+            {{- if .Values.persistence.enabled }}
+            - name: config
+              persistentVolumeClaim:
+                claimName: {{ include "tg-notes.fullname" . }}-config
+            {{- end }}
+            - name: tmp
+              emptyDir: {}
+            - name: home
+              emptyDir: {}
+{{- end }}

@@ -1,0 +1,24 @@
+{{- if .Values.autoscaling.enabled -}}
+# NOTE: tg_notes is a userbot bound to ONE Telegram session — scaling >1 replica
+# is not supported. This template exists only for parity; keep autoscaling off.
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "tg-notes.fullname" . }}
+  labels:
+    {{- include "tg-notes.labels" . | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "tg-notes.fullname" . }}
+  minReplicas: {{ .Values.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.autoscaling.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.autoscaling.targetCPUUtilizationPercentage }}
+{{- end }}

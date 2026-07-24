@@ -1,0 +1,158 @@
+---
+# Default values for the tg-notes chart.
+# Adapted from the customers "application" chart, stripped of the BNPL platform
+# coupling (ArgoCD globals, ESO/Vault, GatewayAPI, Liquibase) for a portable
+# GitHub/GHCR deployment.
+
+# A userbot binds ONE Telegram session — keep this at 1. Do not enable autoscaling.
+replicaCount: 1
+
+image:
+  repository: ghcr.io/korkin25/tg-notes
+  # Empty tag ⇒ chart appVersion. Override per environment.
+  tag: ""
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+# The command the main container runs. Default: the MCP server over streamable-HTTP.
+command: ["tg-notes-mcp-http"]
+args: []
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+automountServiceAccountToken: false
+
+podAnnotations: {}
+podLabels: {}
+
+podSecurityContext:
+  fsGroup: 10000
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 10000
+  runAsGroup: 10000
+  capabilities:
+    drop:
+      - ALL
+
+containerPort: 8000
+
+# Non-secret environment. TG_NOTES_CONFIG_DIR holds the config + Telethon session.
+env:
+  TG_NOTES_CONFIG_DIR: /config
+  TG_NOTES_MCP_HOST: "0.0.0.0"
+  TG_NOTES_MCP_PORT: "8000"
+
+# Extra env from an existing Secret (e.g. TG_NOTES_API_ID / TG_NOTES_API_HASH).
+envFrom:
+  secret:
+    enabled: false
+    name: ""   # defaults to <fullname>-secrets
+
+# TCP probes on the serving port (MCP over HTTP has no dedicated health path).
+livenessProbe:
+  enabled: true
+  tcpSocket:
+    port: http
+  initialDelaySeconds: 15
+  periodSeconds: 20
+readinessProbe:
+  enabled: true
+  tcpSocket:
+    port: http
+  initialDelaySeconds: 5
+  periodSeconds: 10
+startupProbe:
+  enabled: true
+  tcpSocket:
+    port: http
+  failureThreshold: 30
+  periodSeconds: 5
+
+# Persistent config dir — holds the Telethon *.session credential (seed it once
+# with `tg-notes login`; treat it as a private key). See chart/README.md.
+persistence:
+  enabled: true
+  storageClass: ""
+  accessModes: ["ReadWriteOnce"]
+  size: 256Mi
+  mountPath: /config
+  annotations: {}
+
+# Voice/STT (Whisper) model cache. The model is deliberately NOT baked into the
+# image; it lives on this PVC and is fetched on first use or preloaded by devops.
+# See chart/README.md § Voice / STT model. Identical pattern in jira_nano.
+voiceModel:
+  enabled: true
+  storageClass: ""
+  accessModes: ["ReadWriteOnce"]
+  size: 2Gi
+  mountPath: /models
+  annotations: {}
+  # existingClaim: ""
+
+service:
+  enabled: true
+  type: ClusterIP
+  port: 80
+  annotations: {}
+  labels: {}
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: tg-notes.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+serviceMonitor:
+  enabled: false
+  path: /metrics
+  interval: 30s
+  labels: {}
+
+# A userbot must stay single-replica — leave autoscaling OFF.
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 1
+  targetCPUUtilizationPercentage: 80
+
+podDisruptionBudget:
+  enabled: false
+  minAvailable: 1
+  maxUnavailable: ""
+
+# Optional daily-report CronJob (the tg_notes "daily report" preset). Off by
+# default. Set `command` to your report invocation, e.g. ["tg-notes","send",...].
+cronJob:
+  enabled: false
+  schedule: "0 18 * * *"
+  command: []
+  args: []
+  restartPolicy: OnFailure
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 1
+
+resources: {}
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+extraVolumes: []
+extraVolumeMounts: []
