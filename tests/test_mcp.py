@@ -231,3 +231,36 @@ def test_main_reports_when_mcp_missing(mocker, capsys) -> None:
 
     assert rc == 1
     assert "tg-notes[mcp]" in capsys.readouterr().err
+
+
+def test_build_server_accepts_host_port() -> None:
+    """TGN-24: build_server can bind host/port for the streamable-HTTP transport."""
+    pytest.importorskip("mcp")
+
+    server = mcp_server.build_server(host="0.0.0.0", port=1234)
+
+    assert server.settings.host == "0.0.0.0"
+    assert server.settings.port == 1234
+
+
+def test_streamable_http_app_builds() -> None:
+    """TGN-24: the server can produce a remote streamable-HTTP ASGI app."""
+    pytest.importorskip("mcp")
+
+    app = mcp_server.build_server(host="0.0.0.0", port=1234).streamable_http_app()
+
+    assert app is not None
+
+
+def test_run_http_is_callable() -> None:
+    """TGN-24: the tg-notes-mcp-http console entrypoint exists."""
+    assert callable(mcp_server.run_http)
+
+
+def test_run_http_reports_when_mcp_missing(mocker, capsys) -> None:
+    mocker.patch("tg_notes.mcp_server.build_server", side_effect=ImportError("no mcp"))
+
+    rc = mcp_server.run_http()
+
+    assert rc == 1
+    assert "tg-notes[mcp]" in capsys.readouterr().err
