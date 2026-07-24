@@ -1,6 +1,6 @@
 ---
 name: tg-notes-send
-description: Compile stored notes for a specific recipient and send them to that contact's Telegram chat AS THE USER (userbot), via the tg-notes CLI. Use when the user says "отправь отчёт в телегу", "отправь дневной отчёт", "скомпилируй и отправь", "отправь <кому>", or runs /tg-send or /tg-report. Reads notes with `tg-notes notes list`, rewrites them per the contact's style, ALWAYS shows a draft and asks for explicit confirmation, then runs `tg-notes send`. The daily-report preset compiles and sends today's notes (since 00:00).
+description: Compile stored notes for one or several recipients and send them to each contact's Telegram chat AS THE USER (userbot), via the tg-notes CLI. Use when the user says "отправь отчёт в телегу", "отправь дневной отчёт", "скомпилируй и отправь", "отправь <кому>", "отправь обоим", "манагеру и тимлиду", "разошли отчёт", or runs /tg-send or /tg-report. Reads notes with `tg-notes notes list`, rewrites them per each contact's style (a business summary for a manager, verbatim-technical for a tech lead), ALWAYS shows a draft per recipient and asks for explicit confirmation, then runs `tg-notes send`. Fan-out to several contacts at once is supported; the daily-report preset compiles and sends today's notes (since 00:00).
 ---
 
 # tg-notes-send — compile & send
@@ -20,6 +20,8 @@ to *whom* and shells out. Capture (writing notes) is the separate `tg-notes` ski
 
 - The user runs `/tg-send [contact]`, or asks "отправь отчёт в телегу", "скомпилируй и
   отправь", "отправь <кому>", "отправь дневной отчёт".
+- Several recipients at once — "отправь обоим", "манагеру и тимлиду", "разошли отчёт" —
+  see **Fan-out to several recipients** below.
 
 ## Steps
 
@@ -63,6 +65,31 @@ to *whom* and shells out. Capture (writing notes) is the separate `tg-notes` ski
    On error: exit 5 (unknown contact) → list contacts; exit 4 (not set up) → run
    `tg-notes setup`; exit 3 (not logged in) → `tg-notes login`; other Telethon errors
    (e.g. no access to the chat / wrong `chat_id`) → show the message to the user.
+
+## Fan-out to several recipients
+
+The core use for "отправь **обоим**" / "манагеру и тимлиду" / "разошли отчёт всем": one
+source of notes → a **different** message per recipient, each rewritten for that contact's
+`style`. This is the interactive (Claude Code) path — it uses your own model, no API key.
+
+1. **Pick the recipients** — the contact keys from the request (e.g. a manager and a tech
+   lead), else ask. `tg-notes contacts list` for the options.
+2. **Read the notes once** (step 2 above) — the shared source for everyone.
+3. **Compile per recipient** — run step 3 **separately for each contact**, strictly per that
+   contact's `style` (verbatim-technical for the lead, simplified business points for the
+   manager). Same facts, different message.
+4. **Preview each** with `send --dry-run` (step 4), so you have the exact per-recipient text.
+5. **Confirm once, showing every draft** — list each recipient (`name`/`chat_id`, topic) with
+   its final text, and the warning that all go out **under the user's own account**. Send
+   **only** on an explicit "да"/"send".
+6. **Send each** (step 6) — one `tg-notes send` per contact with its own compiled text. Report
+   a one-line result per recipient; on a per-contact error, report it and continue with the rest.
+
+**Headless alternative (no agent):** `tg-notes fanout --contact <a> --contact <b> [--notebook
+daily --since today] [--dry-run]` does the same fan-out for cron/automation — it rewrites each
+recipient's message via the optional `ai` backend (`pipx install "tg-notes[ai]"`, auth via
+`ant auth login`; falls back to the raw notes when the backend is absent). Prefer this skill
+for interactive sends (it shows drafts and asks for confirmation); use `fanout` for scheduled runs.
 
 ## Daily-report preset
 
