@@ -9,6 +9,21 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
+- **TGN-26 — fan-out forward with per-recipient AI rewriting (feature #24).** Deliver one
+  source (a notebook's notes) to **several contacts at once**, each rewritten for that
+  recipient's level via their `style` — a business summary for a manager, verbatim-technical for
+  a tech lead. **Hybrid A+B** design: the `tg-notes-send` skill now documents a first-class
+  multi-recipient flow (pick contacts → per-`style` drafts → one confirmation → send each) that
+  uses the agent's own Claude Code model (no API key); and a headless **`tg-notes fanout`**
+  command (`--contact` repeatable, `--notebook`/`--since`, `--rewrite/--no-rewrite`, `--model`,
+  `--dry-run`) for cron/automation. The optional `tg_notes/ai.py` rewrite backend calls the
+  Anthropic API (lazy `anthropic` import via the new `tg-notes[ai]` extra; auth from an
+  `ant auth login` OAuth profile or `ANTHROPIC_API_KEY` — **no static key in the repo**; default
+  model `claude-opus-5`, override with `--model` or the `ai_model` config key). Rewrite is
+  best-effort: `fanout` falls back to the raw notes when the backend is absent or errors, so a
+  send is never blocked. Mocked, CI-safe unit tests (`test_ai.py`, `test_fanout.py`); the live
+  rewrite is a dev-machine test (needs Anthropic credentials). TDD.
+
 - **TGN-25 — CI live-functional tests.** A new `live-functional` CI job runs **every current
   feature's real data path — through the CLI and the MCP tools** — against a **dedicated test
   account + group**, on every push: `setup`, `secrets status`/`doctor`, `whoami`; text and

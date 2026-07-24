@@ -45,6 +45,9 @@ class Config:
     #: Auto-fetch the whisper engine (faster-whisper) on the first transcription when none
     #: is present. ``None``/absent ⇒ enabled; set to ``false`` to disable and never install.
     transcriber_autoinstall: bool | None = None
+    #: Default model for the optional AI rewrite backend (fan-out; feature #24). ``None`` ⇒
+    #: ``tg_notes.ai.DEFAULT_MODEL``. Not secret — never holds a key (auth is env / OAuth).
+    ai_model: str | None = None
 
     @property
     def session(self) -> str:
@@ -69,6 +72,7 @@ def load() -> Config:
         whisper_cmd=data.get("whisper_cmd"),
         whisper_model=data.get("whisper_model"),
         transcriber_autoinstall=data.get("transcriber_autoinstall"),
+        ai_model=data.get("ai_model"),
     )
 
 
@@ -93,6 +97,7 @@ def _dump_toml(cfg: Config) -> str:
         "whisper_cmd": cfg.whisper_cmd,
         "whisper_model": cfg.whisper_model,
         "transcriber_autoinstall": cfg.transcriber_autoinstall,
+        "ai_model": cfg.ai_model,
     }
     for key, value in fields.items():
         if value is None:

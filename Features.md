@@ -7,26 +7,6 @@ New requests and ideas land here first, then become tasks in [TODO.md](TODO.md).
 
 ## Current (in progress)
 
-23. **CI live-functional tests.** Run **every current feature's real data path** — through both
-    the **CLI** and the **MCP** tools — under GitHub Actions against a **dedicated test account
-    and group**, so the end-to-end flow is exercised on every push (not only unit/mocked tests).
-    Coverage: `setup`, `secrets status`/`doctor`, `whoami`; text and media `note add`, `notes
-    list`, `notebooks list`; the `contacts` CRUD; `send` (dry-run **and** a real self-send that
-    is cleaned up); and the same operations through the MCP `note_add`/`note_add_file`/
-    `notes_list`/`contacts_list`/`send` tools. Credentials come from the `ci-functional`
-    environment secrets (`TG_NOTES_API_ID`, `TG_NOTES_API_HASH`, `TG_NOTES_SESSION` as a
-    `StringSession`, optional `TG_NOTES_TEST_GROUP`); `scripts/sandbox.py` seeds a throwaway
-    file-backend config from them. The job **skips cleanly** when the secrets are absent (forks,
-    or before the maintainer configures them), and never touches the real store. The
-    **secure-store (keyring)** round-trip needs a Secret Service CI lacks, so it is a dev-machine
-    test (opt-in `TG_NOTES_LIVE_KEYRING=1`); audio transcription likewise stays a dev-machine test.
-
-## Planned
-
-15. **Community-marketplace listing.** Submit the Claude plugin to a community
-    marketplace (a user web action; the repo side already passes
-    `claude plugin validate . --strict` and installs from `korkin25/tg_notes`).
-
 24. **Fan-out forward with per-recipient AI rewriting.** Deliver one source (a note, a set of
     notes, or a forwarded message) to **several contacts at once**, each rewritten for that
     recipient's level via their `style` (business summary for a manager, verbatim-technical for a
@@ -35,34 +15,22 @@ New requests and ideas land here first, then become tasks in [TODO.md](TODO.md).
     - **(A) Skill layer** — extend the `tg-notes-send` skill: pick multiple contacts → rewrite per
       each `style` → show drafts → confirm → `send` to each. Uses the user's Claude Code auth (the
       subscription), **no API key, no LLM dependency in the CLI**. The interactive path.
-    - **(B) CLI-native** — a headless rewriter in `tg-notes` for cron/daily-report (no agent),
-      calling the **Anthropic API via an `ant auth login` OAuth profile** (no static key in the
-      repo; billed through the Anthropic API, not a consumer subscription). Optional `anthropic`
-      SDK dependency (an extra, e.g. `tg-notes[ai]`); default model `claude-opus-5` (cheaper
+    - **(B) CLI-native** — a headless `tg-notes fanout` for cron/daily-report (no agent), calling
+      the **Anthropic API via an `ant auth login` OAuth profile** (no static key in the repo;
+      billed through the Anthropic API, not a consumer subscription). Optional `anthropic` SDK
+      dependency (the `tg-notes[ai]` extra); default model `claude-opus-5` (cheaper
       `claude-sonnet-5` for routine rewrites). OpenAI was considered and rejected (second provider
       + static key, off the project's Claude-first ethos).
 
+## Planned
+
+15. **Community-marketplace listing.** Submit the Claude plugin to a community
+    marketplace (a user web action; the repo side already passes
+    `claude plugin validate . --strict` and installs from `korkin25/tg_notes`).
+
 ## Brainstorm (ideas)
 
-24. **Fan-out forward with per-recipient AI rewriting.** Take one source (a note, a set of
-    notes, or a forwarded message) and deliver it to **several contacts at once**, each rewritten
-    for that recipient's level — e.g. a business summary for a manager, verbatim-technical for a
-    tech teamlead — driven by each contact's `style`. Builds on existing pieces: contacts already
-    carry a `style`; `send` already targets one contact. Open **architectural decision** (TGN-D):
-    *where the AI runs and which provider*:
-    - **(A) Skill/agent layer (current architecture).** The `tg-notes-send` skill loops over the
-      chosen contacts and rewrites each via the agent's own model — uses the user's existing
-      Claude Code auth, **no API key and no LLM dependency in the CLI**. Best for interactive use;
-      this is the only path that actually leverages a Claude **subscription** (the agent uses
-      whatever Claude Code is signed in with).
-    - **(B) CLI-native rewriter.** `tg-notes` calls an LLM itself so it works **headless**
-      (cron/daily-report, no agent runtime). Needs a provider: **Anthropic (Claude)** via an
-      `ant auth login` OAuth profile (no static key in the repo; the SDK picks it up) is the
-      Claude-first default — note a *consumer* Claude.ai Pro/Max subscription is **not** an API
-      credential for a standalone CLI, so this bills through the Anthropic API — or an **OpenAI
-      key** (adds a second provider dependency). Default model: `claude-opus-5` (cheaper
-      `claude-sonnet-5` for routine rewrites).
-    A hybrid (A for interactive, B for scheduled) is viable. Decide before it becomes a TODO task.
+_None yet._
 
 ## Delivered
 
@@ -145,3 +113,15 @@ New requests and ideas land here first, then become tasks in [TODO.md](TODO.md).
     functional MCP-HTTP boot job; image + chart pushed to GHCR on main/tags.
 22. **Env-var reference** (`docs/configuration.md`) + a minimal CI env set in the GitHub
     Actions environment `ci-functional`.
+
+### Testing (TGN-25)
+
+23. **CI live-functional tests.** Every current feature's real data path — via the **CLI** and
+    the **MCP** tools — runs under GitHub Actions against a **dedicated test account and group**:
+    `setup`, `secrets status`/`doctor`, `whoami`, text + media `note add`, `notes list`,
+    `notebooks list`, the `contacts` CRUD, and `send` (dry-run + a real self-send, cleaned up).
+    Credentials come from the `ci-functional` environment (`TG_NOTES_API_ID`/`API_HASH`/`SESSION`
+    secrets + optional `TG_NOTES_TEST_GROUP`); `scripts/sandbox.py` seeds a throwaway file-backend
+    config from them and `scripts/cleanup_live.py` purges the group after each run. The job skips
+    cleanly when unconfigured and never touches the real store. Secure-store (keyring) and audio
+    transcription stay dev-machine group-(b) tests (no Secret Service / whisper engine in CI).

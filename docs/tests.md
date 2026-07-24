@@ -111,6 +111,27 @@ needs a whisper engine (group-(b), covered by `test_live_transcribe.py`).
 sandbox. Never touches the real store (`-1004432534270`) — a guard asserts the configured
 group id is a dedicated one.
 
+## Feature 24 — Fan-out AI-rewrite forward (TGN-26)
+
+Deliver one source to several contacts at once, each rewritten per their `style`. **Hybrid
+A+B**: the `tg-notes-send` skill (Phase A) does it interactively via Claude Code; the headless
+`tg-notes fanout` (Phase B) uses `tg_notes/ai.py` (Anthropic SDK, lazy import). The real LLM
+call is group-(b) — it needs Anthropic credentials (an `ant auth login` OAuth profile), which
+CI doesn't have — so CI covers the wiring with mocked units and the live rewrite runs on a dev
+machine.
+
+| Test | Group | What it asserts | Status |
+|------|-------|-----------------|--------|
+| `test_ai_available_*` / `test_ai_client_*` | (a) | `available()` true/false by `anthropic` import; `AIUnavailable` when the extra is missing; zero-arg `Anthropic()` | ✅ |
+| `test_ai_rewrite_builds_request` / `..._defaults_to_opus` | (a) | `rewrite()` sends the per-`style` system prompt + note text to the model and returns the text; default `claude-opus-5` | ✅ |
+| `test_ai_rewrite_wraps_sdk_errors` / `..._empty_response_raises` | (a) | SDK failures + empty responses surface as `AIError` (best-effort caller can catch) | ✅ |
+| `test_fanout_rewrites_per_contact` / `..._model_precedence` | (a) | `fanout` reads notes, rewrites per each contact's `style`; `--model` > `ai_model` > default | ✅ |
+| `test_fanout_no_rewrite_sends_raw` / `..._ai_failure_falls_back` / `..._auto_skips_ai_when_unavailable` | (a) | `--no-rewrite` sends the raw source; AI failure/absence falls back to raw (never blocks the send) | ✅ |
+| `test_fanout_dry_run` / `..._empty_notes` / `..._unknown_contact` | (a) | dry-run composes without sending; empty notes → nothing sent; unknown contact → exit 5 | ✅ |
+| `fanout` no-AI path, live | (b) | dry-run against the sandbox group resolves 2 contacts + composes per contact end-to-end | ✅ (verified) |
+| `fanout` live AI rewrite+send to self-contacts | (b) | end-to-end via a real OAuth profile; per-`style` drafts differ; cleaned up | ⬜ (dev machine) |
+| Skill fan-out flow (per-recipient drafts + one confirmation) | (c) | methodology below: pick 2 contacts → distinct drafts → one confirmation → both sent | ⬜ |
+
 <!-- Template — copy per new feature:
 
 ## Feature <n> — <title>

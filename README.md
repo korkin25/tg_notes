@@ -124,6 +124,15 @@ tg-notes contacts remove boss
 tg-notes send --contact boss --text-file report.txt
 echo "..." | tg-notes send --contact boss --text-file - --dry-run
 
+# Fan out a notebook's notes to several contacts at once, rewritten per each contact's
+# style (business summary for a manager, verbatim-technical for a tech lead). Headless
+# companion to the tg-notes-send skill (cron/daily-report). AI rewrite is best-effort and
+# needs the `ai` extra + Anthropic credentials (see below); --no-rewrite sends the raw
+# notes, --dry-run composes per contact without sending.
+tg-notes fanout --contact manager --contact lead --notebook daily --since today
+tg-notes fanout --contact manager --contact lead --dry-run
+pipx install "tg-notes[ai]"        # optional: enables the AI rewrite (else falls back to raw)
+
 # List the storage group's notebook topics as JSON (excludes General/contacts).
 tg-notes notebooks list
 

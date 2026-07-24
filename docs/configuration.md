@@ -27,6 +27,24 @@ credentials** — treat the session file like a private key.
 | `session_path` | ✅ | Path to the Telethon `*.session` (the login credential). |
 | `secrets` | | Backend: `file` (default) or `keyring`. |
 
+## AI rewrite (fan-out — feature #24)
+
+`tg-notes fanout` rewrites a notebook's notes per each recipient's `style` before sending. The
+rewrite is **optional and best-effort** — without it (or on any failure) the raw notes are sent.
+
+- **Install** the backend: `pipx install "tg-notes[ai]"` (adds the `anthropic` SDK). The import
+  is lazy, so tg-notes runs fine without it.
+- **Authenticate** with **no static key in the repo**: an `ant auth login` OAuth profile (stored
+  under `~/.config/anthropic`, picked up automatically) or `ANTHROPIC_API_KEY`. A consumer
+  Claude.ai subscription is **not** an API credential for the CLI — billing is through the
+  Anthropic API. (The interactive `tg-notes-send` skill needs none of this: it rewrites with the
+  agent's own Claude Code model.)
+- **Model:** `--model` on `fanout`, else the `ai_model` config key, else `claude-opus-5`.
+
+| `config.toml` key | Secret | Purpose |
+|-----|:------:|---------|
+| `ai_model` | | Default rewrite model for `fanout` (e.g. `claude-opus-5` / `claude-sonnet-5`). Never holds a key. |
+
 ## Tests
 
 | Variable | Default | Purpose |
