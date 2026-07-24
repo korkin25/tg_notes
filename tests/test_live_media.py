@@ -12,8 +12,9 @@ caption. Self-contained and deterministic; the per-run marker keeps assertions u
 """
 from __future__ import annotations
 
-import base64
 import os
+import struct
+import zlib
 
 import pytest
 
@@ -25,11 +26,29 @@ pytestmark = pytest.mark.skipif(
 
 NOTEBOOK = "mediatest"
 
-#: A minimal valid 1x1 transparent PNG, decoded in-test (no external fixture file).
-_PNG_1x1 = base64.b64decode(
-    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk"
-    "+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
-)
+
+def _solid_png(width: int = 160, height: int = 160, rgb: tuple[int, int, int] = (30, 144, 255)) -> bytes:
+    """Build a valid 8-bit truecolor solid-color PNG in-process (no external file, no PIL).
+
+    A 1x1 PNG is too small for Telegram's server-side image pipeline (it rejects it with
+    ``ImageProcessFailedError``); a real 160x160 image round-trips cleanly. Structure:
+    signature + IHDR + a single zlib-compressed IDAT (each row prefixed with a 0 filter
+    byte) + IEND.
+    """
+
+    def _chunk(tag: bytes, data: bytes) -> bytes:
+        return (
+            struct.pack(">I", len(data))
+            + tag
+            + data
+            + struct.pack(">I", zlib.crc32(tag + data) & 0xFFFFFFFF)
+        )
+
+    signature = b"\x89PNG\r\n\x1a\n"
+    ihdr = struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0)  # 8-bit, colortype 2 (RGB)
+    row = b"\x00" + bytes(rgb) * width  # filter byte 0, then width RGB pixels
+    idat = zlib.compress(row * height, 9)
+    return signature + _chunk(b"IHDR", ihdr) + _chunk(b"IDAT", idat) + _chunk(b"IEND", b"")
 
 
 def _live_cfg() -> config.Config:
@@ -70,7 +89,7 @@ def test_live_upload_photo_roundtrip(tmp_path) -> None:
     cfg = _live_cfg()
     marker = f"live-photo-{os.getpid()}"
     f = tmp_path / "pixel.png"
-    f.write_bytes(_PNG_1x1)
+    f.write_bytes(_solid_png())
 
     posted = telegram.note_add_file(
         cfg, notebook=NOTEBOOK, file_path=str(f), caption=marker

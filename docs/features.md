@@ -14,33 +14,42 @@
    `tg-notes note add --file <path> [--caption <text>]` uploads a photo, video, audio, or
    document into the notebook topic as native Telegram media (Telethon auto-detects the
    kind). The `--caption` is the note's searchable text; `notes list` reports each note's
-   media type and returns the caption as its `text`. (Phase 2 will auto-fill the caption of
-   an audio note from its transcription.)
-5. **Address book in Telegram.** A dedicated `contacts` topic holds one message per
+   media type and returns the caption as its `text`.
+5. **Audio auto-transcription.** When the `--file` is audio (`.ogg`/`.opus`/`.mp3`/`.m4a`/
+   `.wav`/…) and no `--caption` is given, tg-notes transcribes it **locally** and uses the
+   transcript as the caption — so a dictated voice note becomes searchable text with no
+   manual step. It is **pluggable and best-effort**: it uses a whisper CLI
+   (whisper.cpp/openai-whisper via `whisper_cmd` or on `PATH`) or the `faster-whisper`
+   package, and if no engine is installed (or transcription fails) the file still uploads,
+   just without a caption. Enable an engine with `pipx inject tg-notes faster-whisper` (or
+   the `tg-notes[transcribe]` extra), or point `whisper_cmd` at a whisper binary; `ffmpeg`
+   is required by the whisper engines to decode audio. Control it with
+   `--transcribe`/`--no-transcribe`.
+6. **Address book in Telegram.** A dedicated `contacts` topic holds one message per
    contact (chat, topic, mention, style); editable from the phone.
-6. **Compile & publish.** Turn a subset of notes into a recipient-specific view and post
+7. **Compile & publish.** Turn a subset of notes into a recipient-specific view and post
    it.
-7. **Per-contact style.** Verbatim technical for a lead, simplified business language for
+8. **Per-contact style.** Verbatim technical for a lead, simplified business language for
    a manager, etc. — driven by the contact's `style` prompt.
-8. **Flexible targets.** Deliver to a plain chat or a specific forum topic, with an
+9. **Flexible targets.** Deliver to a plain chat or a specific forum topic, with an
    optional mention.
 
 ## Presets
 
-9. **Daily work report.** Collect the day's notes, compile them, and send — one command
+10. **Daily work report.** Collect the day's notes, compile them, and send — one command
    on top of the core.
 
 ## Tooling & distribution
 
-10. **Standalone CLI (`tg-notes`).** Does all Telegram I/O; usable on its own or from a
+11. **Standalone CLI (`tg-notes`).** Does all Telegram I/O; usable on its own or from a
     scheduler. `tg-notes setup` provisions the store idempotently — creates or attaches
     the private forum supergroup, ensures the `contacts` topic and a default notebook,
     and pins a recovery marker so the group can be re-found if local config is lost.
-11. **Agent Skills.** Drive the CLI and do the writing/summarizing — Claude Code first,
+12. **Agent Skills.** Drive the CLI and do the writing/summarizing — Claude Code first,
     portable to other agent runtimes.
-12. **Easy to install.** Distributable as a Claude plugin via a git marketplace; the CLI
+13. **Easy to install.** Distributable as a Claude plugin via a git marketplace; the CLI
     via PyPI.
-13. **Interactive pickers.** Omitting the selected value on a human terminal opens a
+14. **Interactive pickers.** Omitting the selected value on a human terminal opens a
     chooser — `send --contact`, `contacts remove`, `secrets migrate --to`, and `notes list
     --notebook` — using a fuzzy finder (`fzf`/`sk`/`fzy`) when installed, else a numbered
     menu. It engages only when both stdin and stdout are TTYs and the value was omitted, so

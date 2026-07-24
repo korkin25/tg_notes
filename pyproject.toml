@@ -23,6 +23,7 @@ dependencies = [
 
 [project.optional-dependencies]
 mcp = ["mcp>=1.2"]
+transcribe = ["faster-whisper>=1"]
 keyring = ["keyring>=24", "secretstorage>=3; platform_system == 'Linux'"]
 dev = ["pytest>=8", "pytest-mock", "ruff==0.16.0", "bandit==1.9.4", "pip-audit", "build", "mcp>=1.2", "keyring>=24"]
 

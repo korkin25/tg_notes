@@ -87,8 +87,18 @@ echo "quick note" | tg-notes note add --text-file -
 
 # Or attach a media file (photo/video/audio/document) as the note — stored as native
 # Telegram media in the topic, kind auto-detected. --caption is the searchable text (any
-# --hashtag is appended to it); Phase 2 will auto-fill it from audio transcription.
+# --hashtag is appended to it).
 tg-notes note add --notebook daily --file ~/clips/demo.mp4 --caption "walkthrough" --hashtag demo
+
+# Audio notes auto-transcribe: when --file is audio (.ogg/.opus/.mp3/.m4a/.wav/…) and no
+# --caption is given, tg-notes transcribes it LOCALLY and uses the transcript as the caption
+# (searchable text) — best-effort, so if no engine is installed the file still uploads
+# without a caption. Enable a local engine (both need `ffmpeg` to decode audio):
+#   pipx inject tg-notes faster-whisper        # the faster-whisper backend
+#   # …or set whisper_cmd in config.toml to a whisper.cpp/openai-whisper binary
+# whisper_model (e.g. base/small) picks the model. Force/skip with --transcribe/--no-transcribe.
+tg-notes note add --notebook daily --file ~/voice/idea.ogg          # caption ← transcript
+tg-notes note add --notebook daily --file ~/voice/idea.ogg --no-transcribe
 
 # List the raw notes of a notebook (oldest first) as JSON, optionally bounded by --since
 # (today | HH:MM | YYYY-MM-DD | ISO datetime; local when no offset). Feeds compilation.

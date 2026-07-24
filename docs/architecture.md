@@ -36,10 +36,28 @@ A private **forum supergroup** (Topics enabled) is the store:
 - The note is filed into the chosen notebook's topic.
 - A note may instead be a **media message** (photo, video, audio, or document): the file
   is stored as native Telegram media and the message **caption** carries the note's text
-  (and, later, the audio transcript). `note add --file <path> [--caption <text>]` uploads
-  it; `notes list` reports a coarse `media` type per note (`photo` / `voice` / `audio` /
-  `video` / `gif` / `document`, or `null` for a text note) and returns the caption as
-  `text`, so text and media notes compile through the same path.
+  (or, for an audio note, its transcript). `note add --file <path> [--caption <text>]`
+  uploads it; `notes list` reports a coarse `media` type per note (`photo` / `voice` /
+  `audio` / `video` / `gif` / `document`, or `null` for a text note) and returns the
+  caption as `text`, so text and media notes compile through the same path.
+
+### Audio transcription (pluggable, local, best-effort)
+
+Audio note files are transcribed to text **locally** and the transcript becomes the
+caption, so a dictated voice note is searchable without a manual `--caption`. The
+transcriber (`tg_notes/transcribe.py`) is **pluggable**, detected on demand in order: a
+configured whisper CLI (`whisper_cmd`), a whisper CLI on `PATH`
+(`whisper-cli`/`whisper`/`main` — whisper.cpp or openai-whisper), then the
+`faster-whisper` Python package (imported lazily). No engine is a hard dependency. It is
+**best-effort and never in the I/O layer**: `telegram.py` stays pure Telegram I/O — the
+CLI handler runs `transcribe.transcribe(path, cfg)` and passes the result into the
+existing `note_add_file` as the caption. Transcription runs only when the file is audio,
+no `--caption` was given, and (in the default *auto* mode) an engine is available; if the
+engine is missing (`TranscriptionUnavailable`) or fails (`TranscriptionError`) the upload
+still happens with no caption and a one-line stderr note. The whisper engines shell out
+to `ffmpeg` to decode audio, and `faster-whisper` downloads its model on first use.
+`transcriber` / `whisper_cmd` / `whisper_model` are non-secret config keys. (Phase 3 will
+mirror this best-effort audio auto-transcription in the MCP server and capture skill.)
 
 ### Contact message schema
 

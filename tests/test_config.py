@@ -67,6 +67,31 @@ def test_is_configured_true_and_false() -> None:
     assert config.Config().is_configured() is False
 
 
+def test_transcriber_fields_round_trip(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    cfg = config.Config(
+        api_id=1,
+        api_hash="h",
+        transcriber="auto",
+        whisper_cmd="/usr/bin/whisper-cli",
+        whisper_model="small",
+    )
+
+    config.save(cfg)
+    loaded = config.load()
+
+    assert loaded.transcriber == "auto"
+    assert loaded.whisper_cmd == "/usr/bin/whisper-cli"
+    assert loaded.whisper_model == "small"
+
+
+def test_transcriber_fields_default_to_none() -> None:
+    cfg = config.Config()
+    assert cfg.transcriber is None
+    assert cfg.whisper_cmd is None
+    assert cfg.whisper_model is None
+
+
 def test_config_dir_respects_tg_notes_config_dir(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setenv("TG_NOTES_CONFIG_DIR", str(tmp_path))
 
