@@ -12,3 +12,4 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Project documentation and rules: `README.md`, `CLAUDE.md` (language and doc-sync
   rules), `docs/architecture.md`, `docs/features.md`.
 - Implementation plan in `TODO.md` (planning phase; no code yet).
+- `GPL-3.0` license (`LICENSE`).

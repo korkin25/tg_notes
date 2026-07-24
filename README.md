@@ -53,4 +53,4 @@ installable from a git marketplace. Details land here as implementation proceeds
 
 ## License
 
-TBD.
+[GPL-3.0](LICENSE).

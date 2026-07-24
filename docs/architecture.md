@@ -62,8 +62,15 @@ Editing a contact means editing its message — which is also possible from the 
 ## Local state (secrets only, no data)
 
 - `api_id` / `api_hash` and the Telethon `*.session` file live locally, git-ignored.
-- The storage-group id is a pointer (not data) kept in local config.
+- The storage-group id is a pointer (not data) kept in local config — the source of
+  truth for which group is the store.
 - Notes and contacts live **only** in Telegram.
+
+`setup` also tags the store with a fixed title and a marker in its pinned message.
+If the local config is ever lost (e.g. a new machine), the group can be re-discovered
+by that marker and its id rewritten to config. Discovery-by-name is a **recovery path**,
+not the normal lookup — the config id is always preferred, and the marker check guards
+against picking the wrong same-named group.
 
 ## Delivery mechanism (userbot)
 
@@ -75,8 +82,8 @@ private 1:1 chats). That limitation is the reason the userbot path is required.
 
 ## Distribution
 
-- **CLI:** PyPI (`pipx install tg-notes`) — pending decision vs. a venv bundled with
-  the skill.
+- **CLI:** published to PyPI; installed with `pipx install tg-notes` (decided). A venv
+  bundled with the skill remains a fallback for local development only.
 - **Claude Code Skill:** shipped as a plugin (`.claude-plugin/plugin.json` +
   `skills/tg-notes/SKILL.md`), installable from a git marketplace
   (`.claude-plugin/marketplace.json`). Bundled paths use `${CLAUDE_PLUGIN_ROOT}`, since

@@ -25,10 +25,7 @@ Decision items use `TGN-D<n>`.
 
 | ID | Status | Decision | Details |
 | --- | --- | --- | --- |
-| TGN-D1 | ⬜ | CLI distribution: PyPI + pipx vs. bundled venv | Recommended: publish `tg-notes` to PyPI, the skill runs `pipx install tg-notes`. Alternative: bootstrap a venv inside the skill (as in the prototype). |
-| TGN-D2 | ⬜ | Storage-group discovery | Keep the group id in local config, or resolve it by a well-known title? Config is simpler and explicit. |
 | TGN-D3 | ⬜ | Verify the Agent Skills `SKILL.md` standard | Confirm the spec source and which runtimes actually consume it before relying on cross-agent portability. |
-| TGN-D4 | ⬜ | License | Pick a license (MIT / Apache-2.0 / …) and add `LICENSE`. |
 
 ## Phase 1 — CLI core (`tg-notes`)
 
@@ -36,7 +33,7 @@ Decision items use `TGN-D<n>`.
 | --- | --- | --- | --- |
 | TGN-1 | ⬜ | Project scaffolding | `pyproject.toml`, package layout (`tg_notes/`), CLI entrypoint, local config loader, `.gitignore` for secrets and `*.session`. |
 | TGN-2 | ⬜ | Telegram client layer | Telethon client with the sync wrapper, one-time interactive login, session handling (`chmod 600`). |
-| TGN-3 | ⬜ | `tg-notes setup` | Create or attach a private forum supergroup; ensure the `contacts` topic and a default notebook; persist the group id in local config. |
+| TGN-3 | ⬜ | `tg-notes setup` | Create or attach a private forum supergroup; ensure the `contacts` topic and a default notebook; persist the group id in local config; tag the group (fixed title + pinned marker) for recovery (TGN-D2). |
 | TGN-4 | ⬜ | `tg-notes note add` | Append a note to a notebook topic (create the topic on demand); optional hashtags. |
 | TGN-5 | ⬜ | `tg-notes notes list` | Fetch raw notes from a notebook within a time range (feeds compilation). |
 | TGN-6 | ⬜ | Contacts (address book) | `contacts list/set/remove`; the message-per-contact schema in the `contacts` topic. |
@@ -55,7 +52,7 @@ Decision items use `TGN-D<n>`.
 
 | ID | Status | Task | Details |
 | --- | --- | --- | --- |
-| TGN-12 | ⬜ | Publish CLI to PyPI | Depends on TGN-D1. |
+| TGN-12 | ⬜ | Publish CLI to PyPI | Package `tg-notes` and publish to PyPI; the skill installs it via `pipx install tg-notes`. Decided (was TGN-D1). |
 | TGN-13 | ⬜ | Claude plugin packaging | `.claude-plugin/plugin.json`, skill path, `${CLAUDE_PLUGIN_ROOT}` for bundled paths. |
 | TGN-14 | ⬜ | Git plugin marketplace | `.claude-plugin/marketplace.json`; document `/plugin marketplace add` and install. |
 | TGN-15 | ⬜ | Submit to community marketplace | Validate with `claude plugin validate .`, then submit via the console form. Later. |
