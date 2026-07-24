@@ -125,11 +125,12 @@ touches the real store (`-1004432534270`).
 | ID | Status | Task | Details |
 | --- | --- | --- | --- |
 | TGN-25a | ✅ | Env-credential source in `scripts/sandbox.py` | `_read_ci_credentials()` reads `TG_NOTES_API_ID/HASH/SESSION[/TEST_GROUP]`; `_provision_sandbox` uses it when present, else the local keyring recipe. Mocked unit tests (group-a) green; CI seeding verified end-to-end locally. |
-| TGN-25b | 🟡 | Full CLI coverage — `tests/test_live_functional.py` | Every command: `setup`, `secrets status`/`doctor`, `whoami`, text+media `note add`, `notes list`, `notebooks list`, `contacts` CRUD, `send` dry-run **and** a real self-send (cleaned up). Guards the real store id. Gated `TG_NOTES_LIVE=1`. Green pending the maintainer's secrets. |
-| TGN-25c | 🟡 | MCP coverage — `tests/test_live_mcp.py` | Same data path through the MCP tools (`note_add`/`note_add_file`/`notes_list`/`contacts_list`/`send`). Gated. Green pending secrets. |
-| TGN-25d | 🟡 | Secure-store (keyring) — `tests/test_live_secure_store.py` | file→keyring→file migration + `whoami` from the vault. **Group-(b)**, dev-machine only (no Secret Service in CI); opt-in `TG_NOTES_LIVE_KEYRING=1`. |
-| TGN-25e | 🟡 | CI job `live-functional` (env `ci-functional`) | Seeds config from the env secrets; runs functional+mcp+media via `sandbox.py pytest`; skips (exit 0) when `TG_NOTES_SESSION` is empty. **Needs the maintainer to add the 3 secrets to the `ci-functional` environment.** |
-| TGN-25f | ⬜ | Docs + green CI | `docs/configuration.md` + `docs/tests.md` + `Features.md` + `CHANGELOG.md` updated; verify the live suite green in CI once the secrets are set. |
+| TGN-25b | ✅ | Full CLI coverage — `tests/test_live_functional.py` | Every command: `setup`, `secrets status`/`doctor`, `whoami`, text+media `note add`, `notes list`, `notebooks list`, `contacts` CRUD, `send` dry-run **and** a real self-send (cleaned up). Guards the real store id. **12/12 green in CI** against the dedicated group `-1004422788484`. |
+| TGN-25c | ✅ | MCP coverage — `tests/test_live_mcp.py` | Same data path through the MCP tools. **5/5 green in CI.** |
+| TGN-25d | 🟡 | Secure-store (keyring) — `tests/test_live_secure_store.py` | file→keyring→file migration + `whoami` from the vault. **Group-(b)**, dev-machine only (no Secret Service in CI); opt-in `TG_NOTES_LIVE_KEYRING=1`. To be run on the maintainer's laptop. |
+| TGN-25e | ✅ | CI job `live-functional` (env `ci-functional`) | Seeds config from the env secrets; runs functional+mcp+media via `sandbox.py pytest`; skips (exit 0) when `TG_NOTES_SESSION` is empty. Secrets + `TG_NOTES_TEST_GROUP=-1004422788484` set; **full suite (19) green in CI**. |
+| TGN-25f | ✅ | Cleanup — `scripts/cleanup_live.py` | `purge` the test notebooks / `group` teardown; refuses the real store. Runs as an **always-run** CI step; mocked unit tests green; purged 24 stray notes locally. |
+| TGN-25g | ⬜ | Merge | PR #2 → `main` with `--no-ff` once the branch CI is green (it is); then move TGN-25 to `CHANGELOG.md` done. |
 
 ## Deferred
 

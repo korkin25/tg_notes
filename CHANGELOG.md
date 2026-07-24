@@ -23,7 +23,10 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   and a guard refuses to run against the real store. The **secure-store (keyring) round-trip**
   (`tests/test_live_secure_store.py`) needs a Secret Service CI lacks, so it is a dev-machine
   group-(b) test (opt-in `TG_NOTES_LIVE_KEYRING=1`). TDD for the env source (mocked units); the
-  live suite is gated.
+  live suite is gated. A `scripts/cleanup_live.py` helper (`purge` the test notebooks / `group`
+  teardown) — guarded to refuse the real store — runs as an always-run CI step so the dedicated
+  test group never accumulates notes. Verified end-to-end: the full live suite (19 tests) passes
+  in CI against a dedicated test group.
 - **TGN-24 — `tg-notes-mcp-http`.** New console entry point serving the MCP server over
   remote **streamable-HTTP** (`build_server(host, port)` + `run(transport="streamable-http")`),
   host/port from `TG_NOTES_MCP_HOST`/`TG_NOTES_MCP_PORT` (default `0.0.0.0:8000`). Lets the

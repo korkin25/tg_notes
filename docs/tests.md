@@ -97,6 +97,16 @@ needs a whisper engine (group-(b), covered by `test_live_transcribe.py`).
 |------|-------|-----------------|--------|
 | CI job `live-functional` skips when `TG_NOTES_SESSION` absent | (a) | forks / unconfigured repos stay green (exit 0, no Telegram I/O) | ✅ |
 
+**Cleanup (`scripts/cleanup_live.py`, tests in `test_cleanup_script.py`):**
+
+| Test | Group | What it asserts | Status |
+|------|-------|-----------------|--------|
+| `test_guard_rejects_the_real_store` / `..._missing_group` / `..._allows_a_dedicated_group` | (a) | cleanup **refuses** the real store (`-1004432534270`) and an unconfigured one | ✅ |
+| `test_purge_deletes_non_opener_messages` / `..._skips_unknown_notebook` | (a) | `purge` deletes every note but the topic opener; unknown notebook is a no-op | ✅ |
+| `test_delete_group_calls_delete_channel` | (a) | `group` tears the dedicated test group down | ✅ |
+| `test_main_*` | (a) | dispatch + defaults (`citest`/`mediatest`) + abort-on-real-store | ✅ |
+| live-functional CI job runs `purge` as an **always-run** step | (a) | the dedicated test group never accumulates notes across runs | ✅ |
+
 ¹ Runs in CI once the maintainer sets the `ci-functional` secrets, and locally via the
 sandbox. Never touches the real store (`-1004432534270`) — a guard asserts the configured
 group id is a dedicated one.
