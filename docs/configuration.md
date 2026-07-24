@@ -35,22 +35,41 @@ credentials** — treat the session file like a private key.
 
 ## CI functional tests
 
-The `functional` CI job boots the built image's `tg-notes-mcp-http` server and
-verifies it serves on the port — this needs **no account secret** (the MCP HTTP
-server starts without a Telegram session; only tool *calls* touch Telegram).
+Two CI jobs use the GitHub Actions environment `ci-functional`:
 
-Minimal set from the GitHub Actions environment `ci-functional`:
+- **`functional`** boots the built image's `tg-notes-mcp-http` server and verifies it serves
+  on the port. This needs **no account secret** (the MCP HTTP server starts without a
+  Telegram session; only tool *calls* touch Telegram). It reads the variable
+  `TG_NOTES_MCP_PORT` (default `8000`).
+- **`live-functional`** (TGN-25) runs the real Telegram flow — `setup`, `secrets doctor`,
+  `whoami`, and data round-trips (note add→list, contacts set→list, notebooks list,
+  `send --dry-run`) — against a **dedicated test account + group**. It needs the account
+  secrets below. When `TG_NOTES_SESSION` is unset the job **skips cleanly** (exit 0), so
+  forks and not-yet-configured repos stay green.
 
-- **Variable** `TG_NOTES_MCP_PORT` — the port the functional job probes (default `8000`).
-- **Secrets** (optional; deeper Telegram checks are skipped when absent):
-  `TG_NOTES_API_ID`, `TG_NOTES_API_HASH`, `TG_NOTES_SESSION` (a `StringSession`
-  for a **dedicated test account** — never a personal one), `TG_NOTES_TEST_GROUP`.
+### `live-functional` credentials
+
+`scripts/sandbox.py` seeds a throwaway file-backend config under `RUNNER_TEMP` from these,
+then runs the gated `tests/test_live_functional.py` with `TG_NOTES_LIVE=1`. The real store
+is never touched — a guard refuses to run against it.
+
+| Name | Kind | Purpose |
+|------|------|---------|
+| `TG_NOTES_API_ID` | secret | Test account's Telegram API id. |
+| `TG_NOTES_API_HASH` | secret | Test account's Telegram API hash. |
+| `TG_NOTES_SESSION` | secret | A Telethon `StringSession` for a **dedicated test account** — never a personal one. Absent ⇒ the job skips. |
+| `TG_NOTES_TEST_GROUP` | variable | Optional. A pre-created dedicated group id so `setup` attaches to it every run (idempotent) instead of creating a fresh group; omit to let `setup` create one. |
+
+Generate `TG_NOTES_SESSION` on a machine logged in as the test account with
+`python -c "from telethon.sessions import StringSession; from telethon.sync import TelegramClient; print(StringSession.save(TelegramClient(StringSession(), API_ID, 'API_HASH').session))"`
+after an interactive `.start()`, or export it from an existing session.
 
 Set them with:
 
 ```bash
-gh variable set TG_NOTES_MCP_PORT --env ci-functional --body "8000"
-gh secret   set TG_NOTES_API_ID   --env ci-functional   # paste when prompted
-gh secret   set TG_NOTES_API_HASH --env ci-functional
-gh secret   set TG_NOTES_SESSION  --env ci-functional
+gh variable set TG_NOTES_MCP_PORT   --env ci-functional --body "8000"
+gh variable set TG_NOTES_TEST_GROUP --env ci-functional --body "-1001234567890"  # optional
+gh secret   set TG_NOTES_API_ID     --env ci-functional   # paste when prompted
+gh secret   set TG_NOTES_API_HASH   --env ci-functional
+gh secret   set TG_NOTES_SESSION    --env ci-functional
 ```

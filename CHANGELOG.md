@@ -9,6 +9,16 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
+- **TGN-25 — CI live-functional tests.** A new `live-functional` CI job runs the real
+  Telegram flow — `setup`, `secrets doctor`, `whoami`, and data round-trips (note add→list,
+  contacts set→list, notebooks list, `send --dry-run`) — against a **dedicated test account +
+  group**, on every push. Credentials come from the `ci-functional` environment
+  (`TG_NOTES_API_ID`/`TG_NOTES_API_HASH`/`TG_NOTES_SESSION` secrets + optional
+  `TG_NOTES_TEST_GROUP` variable); `scripts/sandbox.py` gained an env-credential source
+  (`_read_ci_credentials`) so it seeds a throwaway file-backend config from them and runs the
+  gated `tests/test_live_functional.py` (`TG_NOTES_LIVE=1`). The job **skips cleanly** when the
+  session secret is absent (forks / unconfigured repos stay green) and a guard refuses to run
+  against the real store. TDD (mocked unit tests for the env source; the live suite is gated).
 - **TGN-24 — `tg-notes-mcp-http`.** New console entry point serving the MCP server over
   remote **streamable-HTTP** (`build_server(host, port)` + `run(transport="streamable-http")`),
   host/port from `TG_NOTES_MCP_HOST`/`TG_NOTES_MCP_PORT` (default `0.0.0.0:8000`). Lets the

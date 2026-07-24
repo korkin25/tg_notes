@@ -6,6 +6,14 @@ live in `docs/`; stages, current status, and checklists are tracked here. Done t
 
 ## Current state / next action
 
+- **TGN-25 in progress** (2026-07-25): CI **live-functional** job — run `setup` / `secrets
+  doctor` / `whoami` / real data round-trips (note add→list, contacts set→list, notebooks
+  list, send `--dry-run`) against a **dedicated test account + group** under GitHub Actions.
+  Credentials come from the `ci-functional` environment secrets (`TG_NOTES_API_ID`,
+  `TG_NOTES_API_HASH`, `TG_NOTES_SESSION`, `TG_NOTES_TEST_GROUP`); `scripts/sandbox.py` gains
+  an env-credential source so `sandbox.py setup/pytest` seed a throwaway config from those
+  vars via the file backend, and the gated `tests/test_live_functional.py` runs the flow.
+  The job skips cleanly (exit 0) when the session secret is absent (forks / not-yet-configured).
 - **TGN-23 + TGN-24 done** (2026-07-25): containerisation + GHCR + CI suite. Added
   `tg-notes-mcp-http` (streamable-HTTP, TDD), multi-stage `Dockerfile`, `docker-compose.yml`
   + `docker-compose.voice.yml`, Helm `chart/` (Deployment + config/voice PVCs, optional
@@ -106,6 +114,20 @@ Complete — all rows moved to `CHANGELOG.md`.
 ## Phase 4 — Multi-agent portability
 
 Complete — TGN-16 (`AGENTS.md` + per-agent distribution) moved to `CHANGELOG.md`.
+
+## Phase 5 — CI live-functional (TGN-25)
+
+Promote the gated live Telegram tests to run **under CI** against a dedicated test
+account, so `setup` / `doctor` / data round-trips are exercised on every push once the
+`ci-functional` secrets are set. Credentials are sourced from the environment; nothing
+touches the real store (`-1004432534270`).
+
+| ID | Status | Task | Details |
+| --- | --- | --- | --- |
+| TGN-25a | 🟡 | Env-credential source in `scripts/sandbox.py` | `_read_ci_credentials()` reads `TG_NOTES_API_ID/HASH/SESSION[/TEST_GROUP]`; `_provision_sandbox` uses it when present, else the local keyring recipe. Mocked unit tests (group-a). |
+| TGN-25b | 🟡 | Gated `tests/test_live_functional.py` | `whoami`, `secrets doctor --json`, idempotent `setup`, note add→list, contacts set→list, notebooks list, `send --dry-run`; guards against the real store id. Runs only with `TG_NOTES_LIVE=1`. |
+| TGN-25c | 🟡 | CI job `live-functional` (env `ci-functional`) | Seeds config from the env secrets, runs the gated suite via `sandbox.py pytest`; skips (exit 0) when `TG_NOTES_SESSION` is empty. |
+| TGN-25d | ⬜ | Docs | `docs/configuration.md` + `docs/tests.md` + `Features.md` updated; verified green in CI once the maintainer sets the secrets. |
 
 ## Deferred
 
