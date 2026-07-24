@@ -18,6 +18,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from datetime import datetime
 from pathlib import Path
 
 from . import __version__, config, telegram
@@ -176,6 +177,53 @@ def _note_add(args: argparse.Namespace) -> int:
     return 0
 
 
+def _parse_since(value: str) -> datetime:
+    """Parse a ``--since`` bound into a timezone-aware datetime (naive input is local).
+
+    Accepts ``today``, ``HH:MM`` (today at that time), a date (``YYYY-MM-DD``), or a full
+    ISO datetime. Raises ``ValueError`` on anything else.
+    """
+    text = value.strip()
+    now = datetime.now().astimezone()
+    if text.lower() == "today":
+        return now.replace(hour=0, minute=0, second=0, microsecond=0)
+    try:
+        clock = datetime.strptime(text, "%H:%M")  # noqa: DTZ007 (time-of-day only)
+    except ValueError:
+        pass
+    else:
+        return now.replace(hour=clock.hour, minute=clock.minute, second=0, microsecond=0)
+    parsed = datetime.fromisoformat(text)  # raises ValueError on bad input
+    return parsed if parsed.tzinfo is not None else parsed.astimezone()
+
+
+def _notes_list(args: argparse.Namespace) -> int:
+    """List the raw notes of a notebook topic as JSON (TGN-5)."""
+    cfg = config.load()
+    since = None
+    if args.since:
+        try:
+            since = _parse_since(args.since)
+        except ValueError as exc:
+            sys.stderr.write(f"invalid --since value {args.since!r}: {exc}\n")
+            return 1
+    try:
+        notes = telegram.notes_list(cfg, notebook=args.notebook, since=since)
+    except telegram.NotSetUpError as exc:
+        sys.stderr.write(f"{exc}\n")
+        return 4
+    except telegram.NotConfiguredError:
+        _instruct_configure()
+        return 1
+    except telegram.NotAuthorizedError:
+        sys.stderr.write(
+            "not logged in — run `tg-notes login` (or `tg-notes setup`) first\n"
+        )
+        return 3
+    print(json.dumps(notes, ensure_ascii=False))
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="tg-notes",
@@ -222,8 +270,11 @@ def build_parser() -> argparse.ArgumentParser:
     notes_sub = p_notes.add_subparsers(dest="subcommand", metavar="<subcommand>", required=True)
     p_notes_list = notes_sub.add_parser("list", help="list raw notes from a notebook")
     p_notes_list.add_argument("--notebook", default="daily", help="source notebook topic")
-    p_notes_list.add_argument("--since", help="lower time bound (e.g. YYYY-MM-DD or 00:00)")
-    p_notes_list.set_defaults(func=_todo("TGN-5"))
+    p_notes_list.add_argument(
+        "--since",
+        help="lower time bound: today | HH:MM | YYYY-MM-DD | ISO datetime (local if naive)",
+    )
+    p_notes_list.set_defaults(func=_notes_list)
 
     # contacts (TGN-6)
     p_contacts = sub.add_parser("contacts", help="address book")
