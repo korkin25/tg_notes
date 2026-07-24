@@ -106,3 +106,8 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   the single source of chat/topic/mention/style. Verified end-to-end against the real
   account (dry-run → confirmed send to Saved Messages → read back; unknown-contact exit 5).
   Succeeds the retired local `report-send` skill, now driven by the `tg-notes` CLI.
+- Daily-report preset (TGN-11): a first-class section of `skills/tg-notes-send/SKILL.md`
+  (`/tg-report`, "отправь дневной отчёт") — the compile & send flow with fixed defaults
+  (notebook `daily`, `--since today`), one confirmed send per recipient. Completes
+  **Phase 2 (the Claude Code Skill)**: capture (`tg-notes`) + compile & send / daily report
+  (`tg-notes-send`), the Telegram-native successor to the old `report`/`report-send` pair.

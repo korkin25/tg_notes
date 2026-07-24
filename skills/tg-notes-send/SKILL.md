@@ -1,6 +1,6 @@
 ---
 name: tg-notes-send
-description: Compile stored notes for a specific recipient and send them to that contact's Telegram chat AS THE USER (userbot), via the tg-notes CLI. Use when the user says "отправь отчёт в телегу", "скомпилируй и отправь", "отправь <кому>", or runs /tg-send. Reads notes with `tg-notes notes list`, rewrites them per the contact's style, ALWAYS shows a draft and asks for explicit confirmation, then runs `tg-notes send`. The daily-report preset sends today's notes.
+description: Compile stored notes for a specific recipient and send them to that contact's Telegram chat AS THE USER (userbot), via the tg-notes CLI. Use when the user says "отправь отчёт в телегу", "отправь дневной отчёт", "скомпилируй и отправь", "отправь <кому>", or runs /tg-send or /tg-report. Reads notes with `tg-notes notes list`, rewrites them per the contact's style, ALWAYS shows a draft and asks for explicit confirmation, then runs `tg-notes send`. The daily-report preset compiles and sends today's notes (since 00:00).
 ---
 
 # tg-notes-send — compile & send
@@ -60,6 +60,20 @@ to *whom* and shells out. Capture (writing notes) is the separate `tg-notes` ski
    On error: exit 5 (unknown contact) → list contacts; exit 4 (not set up) → run
    `tg-notes setup`; exit 3 (not logged in) → `tg-notes login`; other Telethon errors
    (e.g. no access to the chat / wrong `chat_id`) → show the message to the user.
+
+## Daily-report preset
+
+The common case — "send today's work report". Triggered by `/tg-report`, "отправь дневной
+отчёт", "отчёт в телегу". It is the flow above with fixed defaults:
+
+- **Notebook** `daily`, **since** `today` → `tg-notes notes list --notebook daily --since today`.
+- Recipient: the contact from the request; if none is named, use the user's usual
+  reporting contact (ask which one if unclear — `tg-notes contacts list` to choose).
+- Then compile per the contact's `style`, preview, **confirm**, and send exactly as in the
+  steps above. Multiple recipients → repeat per contact (each with its own compiled text
+  and its own confirmation).
+
+If there are no notes since 00:00, there is nothing to report — say so and stop.
 
 ## Notes
 
