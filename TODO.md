@@ -6,14 +6,18 @@ live in `docs/`; stages, current status, and checklists are tracked here. Done t
 
 ## Current state / next action
 
-- **TGN-25 in progress** (2026-07-25): CI **live-functional** job — run `setup` / `secrets
-  doctor` / `whoami` / real data round-trips (note add→list, contacts set→list, notebooks
-  list, send `--dry-run`) against a **dedicated test account + group** under GitHub Actions.
-  Credentials come from the `ci-functional` environment secrets (`TG_NOTES_API_ID`,
-  `TG_NOTES_API_HASH`, `TG_NOTES_SESSION`, `TG_NOTES_TEST_GROUP`); `scripts/sandbox.py` gains
-  an env-credential source so `sandbox.py setup/pytest` seed a throwaway config from those
-  vars via the file backend, and the gated `tests/test_live_functional.py` runs the flow.
-  The job skips cleanly (exit 0) when the session secret is absent (forks / not-yet-configured).
+- **TGN-26 in progress** (2026-07-25): **fan-out forward with per-recipient AI rewriting**
+  (feature #24, decision Hybrid A+B). Phase A extends the `tg-notes-send` skill to a
+  multi-recipient flow (subscription, no keys). Phase B adds a headless **`tg-notes fanout`**
+  + optional `tg_notes/ai.py` (Anthropic via `ant auth login` OAuth profile, `tg-notes[ai]`
+  extra, default `claude-opus-5`). Branch `feature/TGN-26-fanout-ai-rewrite` off `main`.
+- **TGN-25 done + merged** (2026-07-25, PR #2 → `main`): CI **live-functional** suite — the
+  full data path via **CLI + MCP** (setup/doctor/whoami, text+media note add, notes/notebooks
+  list, contacts CRUD, send dry-run + real self-send) against a dedicated test account+group,
+  green in CI (19 live tests). `scripts/sandbox.py` gained an env-credential source;
+  `scripts/cleanup_live.py` purges the group each run; secure-store is a dev-machine group-(b)
+  test. Secrets `TG_NOTES_API_ID/API_HASH/SESSION` + var `TG_NOTES_TEST_GROUP=-1004422788484`
+  set in the `ci-functional` environment. In `CHANGELOG.md` (`[Unreleased]`).
 - **TGN-23 + TGN-24 done** (2026-07-25): containerisation + GHCR + CI suite. Added
   `tg-notes-mcp-http` (streamable-HTTP, TDD), multi-stage `Dockerfile`, `docker-compose.yml`
   + `docker-compose.voice.yml`, Helm `chart/` (Deployment + config/voice PVCs, optional
@@ -130,7 +134,19 @@ touches the real store (`-1004432534270`).
 | TGN-25d | 🟡 | Secure-store (keyring) — `tests/test_live_secure_store.py` | file→keyring→file migration + `whoami` from the vault. **Group-(b)**, dev-machine only (no Secret Service in CI); opt-in `TG_NOTES_LIVE_KEYRING=1`. To be run on the maintainer's laptop. |
 | TGN-25e | ✅ | CI job `live-functional` (env `ci-functional`) | Seeds config from the env secrets; runs functional+mcp+media via `sandbox.py pytest`; skips (exit 0) when `TG_NOTES_SESSION` is empty. Secrets + `TG_NOTES_TEST_GROUP=-1004422788484` set; **full suite (19) green in CI**. |
 | TGN-25f | ✅ | Cleanup — `scripts/cleanup_live.py` | `purge` the test notebooks / `group` teardown; refuses the real store. Runs as an **always-run** CI step; mocked unit tests green; purged 24 stray notes locally. |
-| TGN-25g | ⬜ | Merge | PR #2 → `main` with `--no-ff` once the branch CI is green (it is); then move TGN-25 to `CHANGELOG.md` done. |
+| TGN-25g | ✅ | Merge | PR #2 merged to `main` with a merge commit (CI green); recorded in `CHANGELOG.md`. |
+
+## Phase 6 — Fan-out AI-rewrite forward (TGN-26, feature #24)
+
+Deliver one source to several contacts at once, each rewritten per their `style`. Decision:
+**Hybrid A+B** (skill layer for interactive; CLI-native `fanout` for headless/cron).
+
+| ID | Status | Task | Details |
+| --- | --- | --- | --- |
+| TGN-26a | 🟡 | `tg_notes/ai.py` (Phase B core) | `rewrite(text, style, *, model, language)` via the Anthropic SDK, **lazy import**; auth from an `ant auth login` OAuth profile or `ANTHROPIC_API_KEY` (no static key). `available()` + `AIUnavailable`/`AIError`. Mocked unit tests (group-a). |
+| TGN-26b | 🟡 | CLI `tg-notes fanout` (Phase B) | `--contact` (repeatable), `--notebook`/`--since`, `--rewrite/--no-rewrite` (auto), `--model`, `--dry-run`. Reads notes → per-contact rewrite (best-effort; falls back to raw) → `send` each. Mocked unit tests; new `ai_model` config + `[ai]` extra. |
+| TGN-26c | 🟡 | Skill fan-out (Phase A) | `skills/tg-notes-send/SKILL.md`: first-class multi-recipient flow (pick contacts → per-`style` drafts → one confirmation → send each), using Claude Code auth; points at the headless `fanout` alternative. |
+| TGN-26d | ⬜ | Live (group-b) + docs | Live `fanout` on a dev machine with an OAuth profile against self-contacts (methodology in `auto-tests/group-b/`); README + `docs/configuration.md` + `CHANGELOG.md`; CI green; PR → `main`. |
 
 ## Deferred
 

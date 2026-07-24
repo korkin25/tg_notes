@@ -111,6 +111,26 @@ needs a whisper engine (group-(b), covered by `test_live_transcribe.py`).
 sandbox. Never touches the real store (`-1004432534270`) — a guard asserts the configured
 group id is a dedicated one.
 
+## Feature 24 — Fan-out AI-rewrite forward (TGN-26)
+
+Deliver one source to several contacts at once, each rewritten per their `style`. **Hybrid
+A+B**: the `tg-notes-send` skill (Phase A) does it interactively via Claude Code; the headless
+`tg-notes fanout` (Phase B) uses `tg_notes/ai.py` (Anthropic SDK, lazy import). The real LLM
+call is group-(b) — it needs Anthropic credentials (an `ant auth login` OAuth profile), which
+CI doesn't have — so CI covers the wiring with mocked units and the live rewrite runs on a dev
+machine.
+
+| Test | Group | What it asserts | Status |
+|------|-------|-----------------|--------|
+| `test_ai_available_*` | (a) | `available()` true/false by `anthropic` import; `AIUnavailable` when the extra is missing | ⬜ |
+| `test_ai_rewrite_builds_request` | (a) | `rewrite()` sends the per-`style` system prompt + note text to the configured model and returns the text block | ⬜ |
+| `test_ai_rewrite_errors_wrapped` | (a) | SDK failures surface as `AIError` (best-effort caller can catch) | ⬜ |
+| `test_fanout_rewrites_per_contact` | (a) | `fanout` reads notes, rewrites per each contact's `style`, sends to each | ⬜ |
+| `test_fanout_no_rewrite` / `test_fanout_ai_fallback` | (a) | `--no-rewrite` sends the raw source; AI failure falls back to raw (never blocks the send) | ⬜ |
+| `test_fanout_dry_run` / `test_fanout_empty_notes` / `test_fanout_unknown_contact` | (a) | dry-run composes without sending; empty notes → nothing sent; unknown contact → exit 5 | ⬜ |
+| `fanout` live rewrite+send to self-contacts | (b) | end-to-end via a real OAuth profile; per-`style` drafts differ; cleaned up | ⬜ |
+| Skill fan-out flow (per-recipient drafts + one confirmation) | (c) | methodology proposed: pick 2 contacts → distinct drafts → confirm → both sent | ⬜ |
+
 <!-- Template — copy per new feature:
 
 ## Feature <n> — <title>
