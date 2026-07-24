@@ -57,6 +57,26 @@ def _unlock_wait(obj, attempts: int = 3) -> bool:
 _SS_CONN = None  # cached Secret Service D-Bus connection (one prompt per process)
 
 
+def _ensure_dbus_env() -> None:
+    """Best-effort: point ``DBUS_SESSION_BUS_ADDRESS`` at the user's session bus when unset.
+
+    When the process is spawned with a sanitized environment (an MCP host, a cron job)
+    ``DBUS_SESSION_BUS_ADDRESS`` may be missing, so ``secretstorage.dbus_init()`` fails with
+    "Environment variable DBUS_SESSION_BUS_ADDRESS is unset" and the keyring backend can't
+    reach the Secret Service. If the variable is unset and the standard per-user bus socket
+    exists, we set it. Never raises — if the socket isn't there we leave the env as-is and let
+    the normal error surface.
+    """
+    if os.environ.get("DBUS_SESSION_BUS_ADDRESS"):
+        return
+    getuid = getattr(os, "getuid", None)  # POSIX-only; this path is Linux/secretstorage-only
+    if getuid is None:
+        return
+    sock = f"/run/user/{getuid()}/bus"
+    if os.path.exists(sock):
+        os.environ["DBUS_SESSION_BUS_ADDRESS"] = f"unix:path={sock}"
+
+
 def _ss_collection():
     """Return the default Secret Service collection, unlocked (waiting for the prompt).
 
@@ -68,6 +88,7 @@ def _ss_collection():
     global _SS_CONN
     import secretstorage
 
+    _ensure_dbus_env()  # self-heal a sanitized env (MCP host / cron) before dbus_init
     if _SS_CONN is None:
         _SS_CONN = secretstorage.dbus_init()
     collection = secretstorage.get_default_collection(_SS_CONN)

@@ -9,6 +9,19 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
+- Media notes — Phase 3 (TGN-21): media capture is now exposed on the agent surfaces. The
+  local MCP server gains a `note_add_file(file, notebook="daily", caption=None,
+  transcribe=True, hashtags=None)` tool that uploads a **local file** as a note (native
+  Telegram media, kind auto-detected) and returns the same dict as `telegram.note_add_file`.
+  It mirrors the CLI handler's best-effort audio transcription: for an audio file with no
+  `caption` and an available local engine it transcribes to the caption (offloaded via
+  `asyncio.to_thread`), and on `TranscriptionUnavailable`/`TranscriptionError` it logs to
+  stderr and uploads with no caption — transcription never aborts the upload; a missing file
+  raises a clear error before any core call. An agent may pass its own `caption` (e.g. an
+  image description) to skip transcription, or `transcribe=False`. The `notes_list` tool
+  already surfaces each note's `media` key verbatim. The `tg-notes` capture skill documents
+  media capture (`note add --file`, audio auto-transcription, agent-supplied captions), and
+  `tg-notes-send` notes that media notes compile from their caption (`media` + caption-as-`text`).
 - Media notes — Phase 2 (TGN-20): audio note files **auto-transcribe to the caption**. When
   `note add --file <path>` is an audio file (`.ogg`/`.oga`/`.opus`/`.mp3`/`.m4a`/`.wav`/
   `.flac`/`.aac`/`.webm`) and no `--caption` is given, tg-notes transcribes it **locally**
@@ -135,6 +148,13 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Fixed
 
+- The keyring backend now self-heals `DBUS_SESSION_BUS_ADDRESS` when it is unset. A process
+  spawned with a sanitized environment (an MCP host, a cron job) has no
+  `DBUS_SESSION_BUS_ADDRESS`, so `secretstorage.dbus_init()` failed with "Environment variable
+  DBUS_SESSION_BUS_ADDRESS is unset" and the Secret Service was unreachable. `_ss_collection`
+  now calls `_ensure_dbus_env()` before `dbus_init()`: if the variable is unset and the
+  standard per-user bus socket (`/run/user/<uid>/bus`) exists, it points the variable there.
+  Best-effort — it never raises, and an already-set address always wins.
 - The gated live media test's photo fixture used an invalid 1x1 PNG that Telegram's
   server-side image pipeline rejected with `ImageProcessFailedError`, so
   `TG_NOTES_LIVE=1 pytest tests/test_live_media.py` failed on the photo round-trip. It now

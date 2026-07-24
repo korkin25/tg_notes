@@ -26,6 +26,9 @@ wrapper that decides *what* to write and shells out. See the project README for 
 2. **Session summary** — the user wants the session logged without dictating it. Compose
    the note yourself from **real facts only** (see below), never invented.
 
+A note can also be **media** — a local file (photo, video, audio, document) stored as
+native Telegram media, its caption being the searchable note text. See "Media capture".
+
 ## Steps
 
 1. **Check the CLI is ready.** Notes require a configured store. If a `tg-notes` command
@@ -63,6 +66,29 @@ wrapper that decides *what* to write and shells out. See the project README for 
 
    On success the CLI prints JSON (`notebook` / `topic_id` / `message_id` / `date`).
    Confirm to the user with a one-line summary of what was filed and where.
+
+## Media capture
+
+To capture a **local file** (photo/video/audio/document) instead of text, pass its path
+with `--file`. The file is uploaded as native Telegram media (the kind is auto-detected)
+into the notebook topic; the caption is its searchable note text.
+
+```bash
+tg-notes note add --notebook daily --file <path> [--caption "<text>"] [--hashtag <tag>]
+```
+
+- **Audio** (`.ogg`/`.opus`/`.mp3`/`.m4a`/`.wav`/…) with **no** `--caption` auto-transcribes
+  **locally** to the caption — a dictated voice note becomes searchable text with no manual
+  step (best-effort: if no transcriber is installed the file still uploads, just without a
+  caption). Force/skip with `--transcribe` / `--no-transcribe`.
+- **Images / other files**: pass your own `--caption` with a short description — this is the
+  note's text and (for audio) it skips transcription.
+- The returned JSON adds `media_type` (`photo`/`voice`/`audio`/`video`/`gif`/`document`) and
+  `caption`. `notes list` reports each note's `media` type and returns the caption as `text`.
+
+On the MCP surface the equivalent tool is `note_add_file(file, notebook, caption,
+transcribe, hashtags)` — same behavior (audio auto-transcribes; pass your own `caption` to
+skip it).
 
 ## Notes
 

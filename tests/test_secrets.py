@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import builtins
+import os
 
 import pytest
 from telethon.sessions import StringSession
@@ -131,6 +132,61 @@ def test_ss_collection_reuses_one_connection(mocker) -> None:
     init.assert_called_once()  # connection opened exactly once, then reused
     assert get_coll.call_count == 2
     assert [c.args for c in get_coll.call_args_list] == [(conn,), (conn,)]  # same conn
+
+
+# --- _ensure_dbus_env: self-heal DBUS_SESSION_BUS_ADDRESS for sanitized-env spawns --
+
+
+def test_ensure_dbus_env_sets_when_unset_and_socket_exists(monkeypatch) -> None:
+    monkeypatch.delenv("DBUS_SESSION_BUS_ADDRESS", raising=False)
+    monkeypatch.setattr(os, "getuid", lambda: 1000, raising=False)
+    monkeypatch.setattr(os.path, "exists", lambda _p: True)
+
+    secrets._ensure_dbus_env()
+
+    assert os.environ["DBUS_SESSION_BUS_ADDRESS"] == "unix:path=/run/user/1000/bus"
+
+
+def test_ensure_dbus_env_leaves_existing_untouched(monkeypatch) -> None:
+    monkeypatch.setenv("DBUS_SESSION_BUS_ADDRESS", "unix:path=/keep/me")
+    # Even if a socket exists, an already-set address must win.
+    monkeypatch.setattr(os, "getuid", lambda: 1000, raising=False)
+    monkeypatch.setattr(os.path, "exists", lambda _p: True)
+
+    secrets._ensure_dbus_env()
+
+    assert os.environ["DBUS_SESSION_BUS_ADDRESS"] == "unix:path=/keep/me"
+
+
+def test_ensure_dbus_env_noop_when_socket_absent(monkeypatch) -> None:
+    monkeypatch.delenv("DBUS_SESSION_BUS_ADDRESS", raising=False)
+    monkeypatch.setattr(os, "getuid", lambda: 1000, raising=False)
+    monkeypatch.setattr(os.path, "exists", lambda _p: False)
+
+    secrets._ensure_dbus_env()
+
+    assert "DBUS_SESSION_BUS_ADDRESS" not in os.environ  # left untouched
+
+
+def test_ss_collection_ensures_dbus_env_before_dbus_init(mocker) -> None:
+    calls: list[str] = []
+    mocker.patch(
+        "tg_notes.secrets._ensure_dbus_env", side_effect=lambda: calls.append("ensure")
+    )
+
+    def _fake_init():
+        calls.append("init")
+        return mocker.Mock()
+
+    mocker.patch("secretstorage.dbus_init", side_effect=_fake_init)
+    collection = mocker.Mock()
+    collection.is_locked.return_value = False
+    mocker.patch("secretstorage.get_default_collection", return_value=collection)
+    secrets._SS_CONN = None  # cold cache so dbus_init actually runs
+
+    secrets._ss_collection()
+
+    assert calls == ["ensure", "init"]  # env healed before the D-Bus connection opens
 
 
 # --- _vault_* dispatch: secretstorage when available, keyring fallback -------------
