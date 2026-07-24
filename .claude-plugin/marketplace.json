@@ -1,0 +1,18 @@
+{
+  "name": "tg-notes-marketplace",
+  "owner": {
+    "name": "korkin25"
+  },
+  "description": "Marketplace for the tg-notes plugin — Telegram-backed notes → compiled reports.",
+  "plugins": [
+    {
+      "name": "tg-notes",
+      "source": "./",
+      "description": "Notes → compile → publish via a private Telegram group, under your own account.",
+      "version": "0.1.0",
+      "homepage": "https://github.com/korkin25/tg_notes",
+      "license": "GPL-3.0-or-later",
+      "keywords": ["telegram", "notes", "userbot", "reports", "cli"]
+    }
+  ]
+}

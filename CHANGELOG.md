@@ -7,6 +7,8 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-07-24
+
 ### Added
 
 - Project documentation and rules: `README.md`, `CLAUDE.md` (language and doc-sync
@@ -111,3 +113,21 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   (notebook `daily`, `--since today`), one confirmed send per recipient. Completes
   **Phase 2 (the Claude Code Skill)**: capture (`tg-notes`) + compile & send / daily report
   (`tg-notes-send`), the Telegram-native successor to the old `report`/`report-send` pair.
+- Claude Code plugin packaging (TGN-13): `.claude-plugin/plugin.json` — plugin manifest
+  (`name: tg-notes`, version, author, GPL-3.0-or-later) that bundles the two skills
+  (auto-discovered from `skills/`). Passes `claude plugin validate . --strict`.
+- Git plugin marketplace (TGN-14): `.claude-plugin/marketplace.json` — single-plugin
+  marketplace (`tg-notes-marketplace`) with `source: "./"` (plugin is the repo root).
+  Install: `/plugin marketplace add korkin25/tg_notes` then
+  `/plugin install tg-notes@tg-notes-marketplace`. The bundled skills drive the `tg-notes`
+  CLI, installed separately with `pipx install tg-notes`.
+
+### Changed
+
+- Single-source the package version: `pyproject.toml` reads it from
+  `tg_notes/__init__.py` (`[tool.hatch.version]`, `dynamic = ["version"]`) so it can no
+  longer drift between the two. Bumped to `0.1.0` for the first release.
+- Release workflow (`.github/workflows/release.yml`) now publishes to PyPI via **Trusted
+  Publishing** (OIDC, `id-token: write`, `pypi` environment) instead of a stored API
+  token, and runs `twine check` on the built artifacts. Publishing still triggers only on
+  a `v*` tag; it needs a one-time PyPI Trusted Publisher bound to `korkin25/tg_notes`.

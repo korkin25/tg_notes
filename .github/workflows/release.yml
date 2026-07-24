@@ -1,12 +1,13 @@
 name: Release
 
 # Triggered by pushing a SemVer tag (vX.Y.Z). Builds the distribution and
-# publishes it to PyPI.
+# publishes it to PyPI via Trusted Publishing (OIDC) — no API token in secrets.
 #
-# NOTE: publishing requires a PyPI API token stored as the `PYPI_API_TOKEN`
-# repository secret (or a Trusted Publisher configuration). Publishing is a
-# deliberate, later step — the workflow only runs when a `v*` tag is pushed,
-# which happens only after the full test suite is green on `main`.
+# ONE-TIME PyPI SETUP (before the first tag): on PyPI, add a Trusted Publisher for
+# the project `tg-notes` bound to repo `korkin25/tg_notes`, workflow
+# `release.yml`, environment `pypi`. Until that exists, the publish step fails by
+# design. Publishing is deliberate — this runs only on a `v*` tag, which is cut
+# only after the full suite is green on `main`.
 
 on:
   push:
@@ -16,6 +17,9 @@ on:
 jobs:
   release:
     runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write # OIDC token for PyPI Trusted Publishing
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -25,7 +29,7 @@ jobs:
         run: pip install build
       - name: Build distribution
         run: python -m build
+      - name: Check distribution metadata
+        run: pipx run twine check dist/*
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          password: ${{ secrets.PYPI_API_TOKEN }}
