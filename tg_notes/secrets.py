@@ -33,6 +33,101 @@ def _keyring_service() -> str:
     return os.environ.get("TG_NOTES_KEYRING_SERVICE", KEYRING_SERVICE)
 
 
+# --- vault access layer (Secret Service via secretstorage, with unlock-and-wait) --
+#
+# The plain ``keyring`` API reads a freshly-created / locked item without unlocking it,
+# so a per-access-confirmation vault (KeePassXC) raises ``LockedException`` immediately
+# instead of prompting. Accessing the Secret Service through ``secretstorage`` lets us
+# call ``unlock()`` explicitly, which BLOCKS until the user answers the vault prompt —
+# the behaviour every other app has. Entries stay compatible with ones written by the
+# ``keyring`` library: both are looked up by the ``{service, username}`` attributes.
+
+
+def _unlock_wait(obj, attempts: int = 3) -> bool:
+    """Unlock a locked collection/item, WAITING for the user's vault prompt (like every
+    other app). Re-requests up to ``attempts`` times if the prompt is dismissed. Returns
+    True when unlocked."""
+    for _ in range(attempts):
+        if not obj.is_locked():
+            return True
+        obj.unlock()  # blocks until the user answers the vault prompt
+    return not obj.is_locked()
+
+
+def _ss_collection():
+    import secretstorage
+
+    conn = secretstorage.dbus_init()
+    collection = secretstorage.get_default_collection(conn)
+    _unlock_wait(collection)
+    return collection
+
+
+def _ss_read(key: str) -> str | None:
+    for item in _ss_collection().search_items(
+        {"service": _keyring_service(), "username": key}
+    ):
+        _unlock_wait(item)
+        return item.get_secret().decode()
+    return None
+
+
+def _ss_write(key: str, value: str) -> None:
+    collection = _ss_collection()
+    for item in collection.search_items({"service": _keyring_service(), "username": key}):
+        _unlock_wait(item)
+        item.delete()  # replace any prior entry (incl. ones written by the keyring lib)
+    collection.create_item(
+        f"tg-notes {key}",
+        {"application": "tg-notes", "service": _keyring_service(), "username": key},
+        value.encode(),
+    )
+
+
+def _ss_delete(key: str) -> None:
+    for item in _ss_collection().search_items(
+        {"service": _keyring_service(), "username": key}
+    ):
+        _unlock_wait(item)
+        item.delete()
+
+
+def _vault_read(key: str) -> str | None:
+    """Read a secret, waiting for the vault prompt (Secret Service via secretstorage); falls
+    back to the plain ``keyring`` API where secretstorage is unavailable (non-Linux)."""
+    try:
+        import secretstorage  # noqa: F401
+    except ImportError:
+        import keyring
+
+        return keyring.get_password(_keyring_service(), key)
+    return _ss_read(key)
+
+
+def _vault_write(key: str, value: str) -> None:
+    """Write a secret, waiting for the vault prompt; keyring fallback where unavailable."""
+    try:
+        import secretstorage  # noqa: F401
+    except ImportError:
+        import keyring
+
+        keyring.set_password(_keyring_service(), key, value)
+        return
+    _ss_write(key, value)
+
+
+def _vault_delete(key: str) -> None:
+    """Delete a secret (idempotent), waiting for the vault prompt; keyring fallback."""
+    try:
+        import secretstorage  # noqa: F401
+    except ImportError:
+        import keyring
+
+        keyring.delete_password(_keyring_service(), key)
+        return
+    _ss_delete(key)
+
+
 class FileBackend:
     """Secrets in ``config.toml`` (api_hash) + a local ``*.session`` file (the default)."""
 
@@ -81,28 +176,20 @@ class KeyringBackend:
     def __init__(self, cfg: Config) -> None:
         self.cfg = cfg
 
-    @staticmethod
-    def _keyring():
-        import keyring  # optional dependency — imported only on the keyring path
-
-        return keyring
-
     def api_hash(self) -> str | None:
         # config value wins during migration; otherwise from the vault
-        return self.cfg.api_hash or self._keyring().get_password(
-            _keyring_service(), _KEY_API_HASH
-        )
+        return self.cfg.api_hash or _vault_read(_KEY_API_HASH)
 
     def is_configured(self) -> bool:
         return bool(self.cfg.api_id and self.api_hash())
 
     def has_session(self) -> bool:
-        return bool(self._keyring().get_password(_keyring_service(), _KEY_SESSION))
+        return bool(_vault_read(_KEY_SESSION))
 
     def session_arg(self):
         from telethon.sessions import StringSession
 
-        saved = self._keyring().get_password(_keyring_service(), _KEY_SESSION)
+        saved = _vault_read(_KEY_SESSION)
         return StringSession(saved) if saved else StringSession()
 
     @contextmanager
@@ -112,9 +199,7 @@ class KeyringBackend:
     def persist_login(self, client) -> None:
         from telethon.sessions import StringSession
 
-        self._keyring().set_password(
-            _keyring_service(), _KEY_SESSION, StringSession.save(client.session)
-        )
+        _vault_write(_KEY_SESSION, StringSession.save(client.session))
 
 
 def get_backend(cfg: Config):
@@ -134,20 +219,22 @@ def keyring_probe() -> tuple[bool, str | None]:
     ``"error:<Type>"`` for anything else. ``kind`` is ``None`` on success.
     """
     try:
-        import keyring
+        import secretstorage  # noqa: F401 — preferred path (unlock-and-wait)
     except ImportError:
-        return False, "not-installed"
+        try:
+            import keyring  # noqa: F401 — fallback path (non-Linux)
+        except ImportError:
+            return False, "not-installed"
     try:
-        service = _keyring_service()
-        keyring.set_password(service, "_probe", "1")
-        ok = keyring.get_password(service, "_probe") == "1"
-        keyring.delete_password(service, "_probe")
+        _vault_write("_probe", "1")
+        ok = _vault_read("_probe") == "1"
+        _vault_delete("_probe")
         return (True, None) if ok else (False, "error:readback-mismatch")
     except Exception as exc:  # noqa: BLE001 — classify any backend failure
         msg = str(exc).lower()
         if "prompt dismissed" in msg or "create the collection" in msg:
             return False, "no-collection"
-        if "locked" in msg:
+        if "locked" in msg or "dismiss" in msg:
             return False, "locked"
         return False, f"error:{type(exc).__name__}"
 
@@ -192,20 +279,17 @@ def migrate_to_keyring(cfg: Config) -> None:
     """Move ``api_hash`` + the session into the keyring; leaves ``cfg`` pointing there.
 
     Mutates ``cfg`` (``secrets_backend='keyring'``, ``api_hash=None``) — the caller saves
-    it. Verifies the keyring round-trip before removing the on-disk session.
+    it. Verifies the vault round-trip before removing the on-disk session.
     """
-    import keyring
-
     if not cfg.api_hash:
         raise ValueError("no api_hash in config to migrate")
     session_str = _export_string_session(cfg)
     if not session_str:  # empty = no authorized session; never overwrite the vault with it
         raise RuntimeError("no authorized session to migrate — run `tg-notes login` first")
 
-    service = _keyring_service()
-    keyring.set_password(service, _KEY_API_HASH, cfg.api_hash)
-    keyring.set_password(service, _KEY_SESSION, session_str)
-    if keyring.get_password(service, _KEY_SESSION) != session_str:
+    _vault_write(_KEY_API_HASH, cfg.api_hash)
+    _vault_write(_KEY_SESSION, session_str)
+    if _vault_read(_KEY_SESSION) != session_str:
         raise RuntimeError("keyring did not store the session — aborting migration")
 
     dotfile = _dotsession(cfg.session)
@@ -217,19 +301,14 @@ def migrate_to_keyring(cfg: Config) -> None:
 
 def migrate_to_file(cfg: Config) -> None:
     """Move ``api_hash`` + the session from the keyring back to config + a session file."""
-    import keyring
-
-    service = _keyring_service()
-    api_hash = keyring.get_password(service, _KEY_API_HASH)
-    session_str = keyring.get_password(service, _KEY_SESSION)
+    api_hash = _vault_read(_KEY_API_HASH)
+    session_str = _vault_read(_KEY_SESSION)
     if not session_str:
         raise RuntimeError("no session in the keyring to migrate")
 
-    from keyring.errors import PasswordDeleteError
-
     _write_file_session(cfg, session_str)
-    keyring.delete_password(service, _KEY_SESSION)
-    with contextlib.suppress(PasswordDeleteError):  # absent api_hash key is fine
-        keyring.delete_password(service, _KEY_API_HASH)
+    _vault_delete(_KEY_SESSION)
+    with contextlib.suppress(Exception):  # absent api_hash key is fine
+        _vault_delete(_KEY_API_HASH)
     cfg.secrets_backend = "file"
     cfg.api_hash = api_hash
