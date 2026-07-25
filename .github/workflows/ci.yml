@@ -58,7 +58,7 @@ jobs:
       has-tests: ${{ steps.detect.outputs.has-tests }}
       python-package-dir: ${{ steps.detect.outputs.python-package-dir }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - id: detect
         uses: korkin25/open-ci-actions/actions/detect-project@v1
         # The defaults are spelled out for readability — drop the whole `with:` block
@@ -79,7 +79,7 @@ jobs:
     outputs:
       semver: ${{ steps.gitversion.outputs.semver }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0 # required: GitVersion needs the full history
       - id: gitversion
@@ -221,7 +221,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: ci-functional
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
