@@ -1,0 +1,59 @@
+---
+# GitVersion — the single source of the version (image, Helm chart, package, and docs).
+# Branching model: feature/* → dev → rc → release. There is NO `main` branch.
+# Adapted from the BNPL services' config with channel names normalized to dev/rc/release.
+#
+# Produces:
+#   feature/*  → X.Y.Z-alpha.N
+#   dev        → X.Y.Z-dev.N       (mainline integration)
+#   rc         → X.Y.Z-rc.N
+#   release    → X.Y.Z-release.N   (set label: '' below if you want a clean X.Y.Z on release)
+#   tag v*     → that exact version
+#
+# GitLab CI reads this via auto-semversioning; GitHub Actions runs GitVersion in a `version`
+# job and reuses the same number — so both CIs and the docs agree on one version.
+mode: ContinuousDelivery
+tag-prefix: v
+
+branches:
+  dev:
+    regex: ^(origin/)?dev(elop)?(ment)?$
+    mode: ContinuousDelivery
+    label: dev
+    increment: Patch
+    prevent-increment:
+      when-current-commit-tagged: false
+    is-main-branch: true
+
+  rc:
+    regex: ^(origin/)?rc$
+    mode: ContinuousDelivery
+    label: rc
+    increment: Minor
+    source-branches:
+      - dev
+
+  release:
+    regex: ^(origin/)?release$
+    mode: ContinuousDelivery
+    label: release
+    increment: Major
+    is-release-branch: true
+    source-branches:
+      - rc
+
+  feature:
+    regex: ^(origin/)?features?[/-]
+    mode: ContinuousDelivery
+    label: alpha
+    increment: Inherit
+    source-branches:
+      - dev
+
+  hotfix:
+    regex: ^(origin/)?hotfix(es)?[/-]
+    mode: ContinuousDelivery
+    label: hotfix
+    increment: Patch
+    source-branches:
+      - release

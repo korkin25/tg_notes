@@ -1,0 +1,44 @@
+---
+# GitLab CI for a GitLab mirror of this repo.
+#
+# This file is include + variable overrides ONLY. The whole pipeline comes from the shared
+# templates in open_ci_cd/templates — versioning, language gates, SAST, image build, chart
+# packaging and the script-driven functional tests. Every job self-activates from the repo
+# contents (Python jobs need pyproject.toml, docker jobs need ${DOCKERFILE}, helm needs
+# ${CHART_PATH}/Chart.yaml, functional needs auto-tests/group-a/*.sh), so there is nothing
+# language-specific to list here.
+#
+# New jobs belong in the templates repo, never in this file.
+#
+# Required project/group CI/CD variables: CI_REGISTRY, CI_REGISTRY_USER, CI_REGISTRY_PASSWORD.
+# Pin `ref` to a tag once you adopt this, for reproducible pipelines.
+
+include:
+  - project: "open_ci_cd/templates"
+    ref: "main"
+    file:
+      - /globals.yml            # stages, runner tags, shared variables
+      - /auto-semversioning.yml # GitVersion -> GitVersion_SemVer
+      - /lint.yml               # ruff/mypy/pytest, radon/xenon; self-activates on pyproject.toml
+      - /sast.yml               # checkov, trivy, gitleaks, semgrep, bandit, pip-audit, hadolint
+      - /docker-build.yml       # image -> GitLab Container Registry
+      - /helm-package.yml       # chart -> GitLab Package Registry (OCI)
+      - /functional.yml         # runs this repo's auto-tests/group-a/*.sh (script-driven)
+
+variables:
+  # Layout: Dockerfile at the repo root and chart under chart/
+  # (template defaults are deploy/Dockerfile and helm/).
+  DOCKERFILE: "Dockerfile"
+  CHART_PATH: "chart"
+
+  # The Python package lives in tg_notes/ — point the linters, complexity gate and bandit at it.
+  PYTHON_LINT_PATHS: "tg_notes"
+  BANDIT_TARGET: "tg_notes"
+
+  # Functional is script-driven: auto-tests/group-a/validate-deploy.sh builds the image and
+  # boots tg-notes-mcp-http. No PORT/PATH probe config — the script owns what "functional" means.
+
+  # Runner: globals.yml defaults to GitLab.com shared runners. Uncomment to use a private
+  # fleet — the value must be a literal tag, never a reference to another variable.
+  # RUNNER_TAG: "open_ci_cd_runner"
+  # RUNNER_TAG_INFRA: "open_ci_cd_runner"

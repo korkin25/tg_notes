@@ -6,6 +6,16 @@ live in `docs/`; stages, current status, and checklists are tracked here. Done t
 
 ## Current state / next action
 
+- **TGN-27 in progress** (2026-07-26): **adopt the `ai-project-template` engineering standard**
+  (feature #25). Branch model migrated `main` → `dev`/`rc`/`release` (`dev` is default; `main`
+  kept as legacy). Done on branch `feature/TGN-27-full-standard` off `dev`: CI recomposed on
+  `korkin25/open-ci-actions@v1` (+ bespoke `live-functional`), `GitVersion.yml`, slimmed
+  functional script, universal agent-rule symlinks + `.claude/settings.json` hook +
+  `.cursor/rules/project.mdc`, `CLAUDE.md` hardened (context-map router / Versioning /
+  Safe-autonomy / Agent-security / Design-before-code / cross-agent portability), `doc-sync.yml`,
+  Dependabot, pre-commit (gitleaks-only), CODEOWNERS, PR/issue templates, SECURITY/CONTRIBUTING/
+  CoC, `.gitlab-ci.yml`. **Next:** push branch → PR to `dev` → analyze CI logs (even if green) →
+  merge with `--no-ff` once green. Then apply the same standard to `jira_nano`.
 - **TGN-26 in progress** (2026-07-25): **fan-out forward with per-recipient AI rewriting**
   (feature #24, decision Hybrid A+B). Phase A extends the `tg-notes-send` skill to a
   multi-recipient flow (subscription, no keys). Phase B adds a headless **`tg-notes fanout`**

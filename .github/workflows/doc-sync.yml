@@ -1,0 +1,47 @@
+# Doc-sync guard (CLAUDE.md "Documentation sync" rule, mechanically enforced).
+#
+# Fails a PR that changes code/deploy surface without touching any documentation.
+# This catches the common failure mode where an agent updates code but forgets the
+# docs/CHANGELOG/tests. Agent-agnostic — it works no matter which tool wrote the diff.
+#
+# Escape hatch: add the label "no-docs" to the PR, or put "[skip doc-sync]" in the PR
+# title, for the rare change that genuinely needs no doc update.
+name: doc-sync
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  guard:
+    name: Docs updated with code
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Check code changes carry doc changes
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+          LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
+        run: |
+          set -euo pipefail
+          case "$TITLE" in *"[skip doc-sync]"*) echo "skip via title"; exit 0;; esac
+          case ",$LABELS," in *",no-docs,"*) echo "skip via label"; exit 0;; esac
+
+          base="origin/${{ github.base_ref }}"
+          changed=$(git diff --name-only "$base"...HEAD)
+          echo "changed files:"; echo "$changed"
+
+          code=$(echo "$changed" | grep -E '^(tg_notes/|chart/|Dockerfile|docker-compose|\.github/workflows/)' || true)
+          docs=$(echo "$changed" | grep -E '^(docs/|README\.md|CHANGELOG\.md|Features\.md|TODO\.md|CLAUDE\.md)' || true)
+
+          if [ -n "$code" ] && [ -z "$docs" ]; then
+            echo "::error::Code/deploy files changed but no docs updated. Update the matching"
+            echo "::error::doc per CLAUDE.md 'Documentation sync' (CHANGELOG/docs/tests.md/Features/TODO),"
+            echo "::error::or add the 'no-docs' label / '[skip doc-sync]' in the PR title if truly N/A."
+            exit 1
+          fi
+          echo "doc-sync OK"

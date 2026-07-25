@@ -9,6 +9,17 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
+- **TGN-27 — adopt the `ai-project-template` engineering standard (feature #25).** Universal
+  agent-rule pickup: `CLAUDE.md` is the single source and `AGENTS.md`, `GEMINI.md`,
+  `.cursorrules`, `.clinerules`, `.windsurfrules`, `.github/copilot-instructions.md` are
+  symlinks to it, with `.cursor/rules/project.mdc` as a thin pointer and a per-turn
+  `.claude/settings.json` hook re-injecting the context map. `CLAUDE.md` gained the
+  **Start-here context-map router**, **Versioning** (GitVersion), **Safe autonomy**,
+  **Agent security working agreements**, **Design-before-code**, and the cross-agent
+  portability section (folded in from the old real `AGENTS.md`). Added a **doc-sync** CI guard
+  (`.github/workflows/doc-sync.yml`), **Dependabot**, **pre-commit** (gitleaks via Docker only),
+  **CODEOWNERS**, PR/issue templates, `SECURITY.md`, `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`,
+  `GitVersion.yml`, and a `.gitlab-ci.yml` mirror (using `open_ci_cd/templates`).
 - **TGN-26 — fan-out forward with per-recipient AI rewriting (feature #24).** Deliver one
   source (a notebook's notes) to **several contacts at once**, each rewritten for that
   recipient's level via their `style` — a business summary for a manager, verbatim-technical for
@@ -60,6 +71,18 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Changed
 
+- **TGN-27 — CI is now a composition, and the branch model moved to `dev`/`rc`/`release`.**
+  `.github/workflows/ci.yml` is wiring only — every job `uses:` a reusable workflow from
+  `korkin25/open-ci-actions@v1` (`detect` → `version` → `python` / `sast` / `docker` / `helm` /
+  `functional` / `release`), plus one bespoke `live-functional` job (the real-Telegram suite,
+  kept). The functional smoke (`auto-tests/group-a/validate-deploy.sh`) was slimmed to image
+  build + boot `tg-notes-mcp-http` + port probe (contract exit 0/77/other; probe host portable
+  across GitHub and GitLab DinD). The old `main` branch is retired in favour of
+  `feature/*` → `dev` → `rc` → `release`; `dev` is the default branch and versions come from
+  GitVersion. All governance text updated to the new model. The bespoke `live-functional`
+  job runs on `push` only (skips the duplicate same-repo `pull_request` run for the same SHA)
+  and holds a serializing concurrency group, so two real-Telegram suites never hit the one
+  test account at once (that concurrency was making media read-backs flaky).
 - **TGN-22 — governance docs mirrored with `jira_nano`.** `CLAUDE.md` gains explicit,
   apply-without-being-asked sections: **Documentation sync** (trigger→update table),
   **Testing policy** (three test groups a/b/c, TDD-first, CI log analysis even on green,

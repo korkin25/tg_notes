@@ -1,0 +1,25 @@
+{
+  "$comment": "Keeps agents aware of the whole repo, not just root rules. UserPromptSubmit re-injects the context-map reminder every turn (harness-enforced, so it survives long sessions and context drift); SessionStart does it once on startup. Other agents rely on the 'Start here — context map' section in CLAUDE.md.",
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "printf '%s' 'Reminder: CLAUDE.md is a ROUTER. Before acting, load the task-relevant files from its \"Start here — context map\" (Features.md, TODO.md, docs/tests.md, docs/configuration.md, docs/architecture.md, docs/sandbox-testing.md, skills/*/SKILL.md). Keep docs in lockstep in the same change (Documentation-sync table); CI enforces it. Design before code; TDD; never send real Telegram messages outside the sandbox test account.'"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "printf '%s' 'This repo follows CLAUDE.md as a router over Features.md/TODO.md/docs/*/skills. Read the \"Start here — context map\" before working; do not work from CLAUDE.md alone.'"
+          }
+        ]
+      }
+    ]
+  }
+}
