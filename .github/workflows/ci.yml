@@ -1,16 +1,8 @@
-# CI for tg_notes.
-#
-# Quality/security gates + artifact publishing to GHCR:
-#   lint-test  — ruff, pytest (3.11 & 3.12)
-#   quality    — radon/xenon code-quality assessment (complexity + maintainability)
-#   security   — bandit, pip-audit, semgrep (SAST, isolated via pipx)
-#   iac-scan   — checkov, hadolint, trivy (config/fs misconfig)
-#   image      — build the Docker image, trivy-scan it, push to GHCR (main + tags)
-#   chart      — helm lint/template, package + push the OCI chart to GHCR (tags)
-#   functional — boot the built image and verify the MCP-HTTP server serves
-#
-# PyPI publishing stays in release.yml (trusted publishing on a version tag).
-# Newly-added scanners run in report mode (soft-fail / continue-on-error).
+---
+# CI — composed from the public reusable workflows in korkin25/open-ci-actions@v1.
+# Every job self-activates from the repository contents (detect-project), so this file is
+# just wiring + inputs. New shared jobs belong in open-ci-actions, not here.
+# The one bespoke job is `live-functional` (real Telegram, gated on secrets).
 name: CI
 
 on:
@@ -18,191 +10,81 @@ on:
     branches: ["**"]
     tags: ["v*"]
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
-  packages: write
 
-env:
-  IMAGE: ghcr.io/${{ github.repository_owner }}/tg-notes
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  lint-test:
-    name: Lint & test
+  detect:
+    name: Detect
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        python-version: ["3.11", "3.12"]
+    outputs:
+      has-python: ${{ steps.detect.outputs.has-python }}
+      has-dockerfile: ${{ steps.detect.outputs.has-dockerfile }}
+      has-chart: ${{ steps.detect.outputs.has-chart }}
+      has-tests: ${{ steps.detect.outputs.has-tests }}
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-      - name: Install (with dev extras)
-        run: |
-          python -m pip install --upgrade pip setuptools
-          pip install -e .[dev]
-      - name: Ruff (lint)
-        run: ruff check .
-      - name: Test (pytest)
-        run: pytest -q
+      - id: detect
+        uses: korkin25/open-ci-actions/actions/detect-project@v1
 
-  quality:
-    name: Code quality (radon/xenon)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - name: Install radon/xenon
-        run: pip install radon xenon
-      - name: Cyclomatic complexity + maintainability index (report)
-        run: |
-          radon cc -s -a tg_notes
-          radon mi -s tg_notes
-      - name: Complexity gate (xenon)
-        continue-on-error: true
-        run: xenon --max-absolute C --max-modules B --max-average A tg_notes
+  python:
+    needs: detect
+    if: needs.detect.outputs.has-python == 'true'
+    uses: korkin25/open-ci-actions/.github/workflows/python.yml@v1
+    with:
+      # The package lives at repo root (tg_notes/), so lint the whole tree.
+      lint-paths: "tg_notes"
+      dev-extra: "dev"
+      python-versions: '["3.11","3.12"]'
 
-  security:
-    name: Security (bandit/pip-audit/semgrep)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - name: Install (project + bandit only, keep pip-audit env clean)
-        run: |
-          python -m pip install --upgrade pip setuptools
-          pip install -e .
-          pip install bandit pip-audit
-      - name: Bandit
-        run: bandit -c pyproject.toml -r tg_notes
-      - name: pip-audit (project env)
-        run: pip-audit
-      - name: Semgrep (SAST, isolated via pipx)
-        continue-on-error: true
-        run: pipx run semgrep scan --config p/python --config p/security-audit --error --skip-unknown-extensions
+  sast:
+    needs: detect
+    uses: korkin25/open-ci-actions/.github/workflows/sast.yml@v1
+    with:
+      has-python: ${{ needs.detect.outputs.has-python }}
+      has-dockerfile: ${{ needs.detect.outputs.has-dockerfile }}
+      bandit-target: "tg_notes"
 
-  checkov:
-    name: Checkov (IaC misconfig)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - name: Checkov (Dockerfile / GitHub Actions / secrets)
-        continue-on-error: true
-        run: |
-          pip install checkov
-          checkov -d . --framework dockerfile,github_actions,secrets --soft-fail --quiet
+  docker:
+    needs: detect
+    if: needs.detect.outputs.has-dockerfile == 'true'
+    permissions:
+      contents: read
+      packages: write
+    uses: korkin25/open-ci-actions/.github/workflows/docker.yml@v1
+    with:
+      # Keep the existing image name ghcr.io/korkin25/tg-notes (repo is tg_notes).
+      image-name: "tg-notes"
+      # This repo still uses `main` as its integration branch.
+      push-branches: "main"
 
-  hadolint:
-    name: Hadolint (Dockerfile)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Hadolint
-        run: docker run --rm -i hadolint/hadolint:latest hadolint - < Dockerfile || true
-
-  trivy-config:
-    name: Trivy (config misconfig)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Trivy (Dockerfile/compose/helm/k8s)
-        continue-on-error: true
-        run: |
-          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b "$RUNNER_TEMP/bin"
-          "$RUNNER_TEMP/bin/trivy" config . --exit-code 0
-
-  image:
-    name: Docker image → GHCR
-    runs-on: ubuntu-latest
-    needs: [lint-test]
-    steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
-      - name: Image metadata (tags)
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.IMAGE }}
-          tags: |
-            type=ref,event=branch
-            type=ref,event=pr
-            type=sha
-            type=semver,pattern={{version}}
-            type=raw,value=latest,enable={{is_default_branch}}
-      - name: Build (load locally)
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          push: false
-          load: true
-          provenance: false
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-      - name: Trivy (image vulnerabilities, report)
-        continue-on-error: true
-        run: |
-          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b "$RUNNER_TEMP/bin"
-          "$RUNNER_TEMP/bin/trivy" image --exit-code 0 --ignore-unfixed "${IMAGE}:${{ steps.meta.outputs.version }}"
-      - name: Push to GHCR
-        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
-        run: |
-          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-          while read -r t; do [ -n "$t" ] && docker push "$t"; done <<< "${{ steps.meta.outputs.tags }}"
-
-  chart:
-    name: Helm chart → GHCR
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: azure/setup-helm@v4
-      - name: Lint & template
-        run: |
-          helm lint chart
-          helm template t chart > /dev/null
-      - name: Package
-        run: helm package chart --destination /tmp/chart
-      - name: Push OCI chart (tags only)
-        if: startsWith(github.ref, 'refs/tags/v')
-        run: |
-          echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io -u ${{ github.actor }} --password-stdin
-          helm push /tmp/chart/*.tgz oci://ghcr.io/${{ github.repository_owner }}/charts
+  helm:
+    needs: detect
+    if: needs.detect.outputs.has-chart == 'true'
+    permissions:
+      contents: read
+      packages: write
+    uses: korkin25/open-ci-actions/.github/workflows/helm.yml@v1
+    with:
+      chart-path: "chart"
 
   functional:
-    name: Functional (MCP-HTTP boot)
-    runs-on: ubuntu-latest
-    # A minimal env comes from the GitHub Actions environment (variables/secrets).
-    environment: ci-functional
-    steps:
-      - uses: actions/checkout@v4
-      - name: Build image
-        run: DOCKER_BUILDKIT=1 docker build -t tg-notes:ci .
-      - name: Boot MCP-HTTP server and probe the port
-        env:
-          TG_NOTES_MCP_PORT: ${{ vars.TG_NOTES_MCP_PORT || '8000' }}
-        run: |
-          docker run -d --name tgn -p 8000:8000 -e TG_NOTES_MCP_PORT=8000 tg-notes:ci
-          for i in $(seq 1 20); do
-            if (echo > /dev/tcp/127.0.0.1/8000) 2>/dev/null; then echo "MCP-HTTP up"; ok=1; break; fi
-            sleep 1
-          done
-          docker logs tgn | tail -20
-          docker rm -f tgn >/dev/null 2>&1 || true
-          test "${ok:-0}" = "1"
+    needs: detect
+    if: needs.detect.outputs.has-tests == 'true'
+    uses: korkin25/open-ci-actions/.github/workflows/functional.yml@v1
 
+  # Bespoke: the real-Telegram end-to-end suite. Not part of open-ci-actions because it
+  # needs this project's dedicated test account. Skips cleanly when the secret is absent.
   live-functional:
     name: Live-functional (real Telegram)
+    needs: [python]
     runs-on: ubuntu-latest
-    needs: [lint-test]
-    # Credentials for a DEDICATED test account live in this GitHub Actions environment.
     environment: ci-functional
     steps:
       - uses: actions/checkout@v4
@@ -214,11 +96,6 @@ jobs:
           python -m pip install --upgrade pip setuptools
           pip install -e .[dev]
       - name: Seed a throwaway config and run the gated live suite
-        # Sources the dedicated test account's credentials from the environment. When the
-        # session secret is absent (forks, or before the maintainer configures it) the step
-        # skips cleanly so the job stays green. `scripts/sandbox.py` seeds a throwaway
-        # file-backend config under RUNNER_TEMP from these vars and runs `setup` + the gated
-        # tests with TG_NOTES_LIVE=1 — the real store is never touched.
         env:
           TG_NOTES_API_ID: ${{ secrets.TG_NOTES_API_ID }}
           TG_NOTES_API_HASH: ${{ secrets.TG_NOTES_API_HASH }}
@@ -231,11 +108,6 @@ jobs:
             exit 0
           fi
           export TG_NOTES_SANDBOX_DIR="$RUNNER_TEMP/tgn-sandbox"
-          # Full data path across both frontends: CLI (test_live_functional), MCP tools
-          # (test_live_mcp) and media round-trips (test_live_media). The secure-store
-          # (keyring) suite needs a Secret Service CI does not have, so it self-skips;
-          # audio transcription needs a whisper engine and is left out. The purge runs
-          # even when the suite fails, so the dedicated test group never accumulates notes.
           rc=0
           python scripts/sandbox.py pytest -- \
             tests/test_live_functional.py \

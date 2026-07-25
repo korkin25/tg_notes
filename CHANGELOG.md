@@ -7,6 +7,17 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Changed
+
+- **TGN-27 — CI adopts the public `open-ci-actions` reusable workflows.** The inline
+  `.github/workflows/ci.yml` is replaced by a thin composition that `uses:`
+  `korkin25/open-ci-actions/*@v1` (detect → python / sast / docker → GHCR / helm / functional),
+  each job self-activating from the repo contents. The bespoke `live-functional` job (real
+  Telegram, secret-gated) stays inline. Chart linting moved into the shared `helm` job, so
+  `auto-tests/group-a/validate-deploy.sh` is now a pure image boot+probe smoke test
+  (exit 0/77/other contract, run by the shared functional workflow). `release.yml` (PyPI
+  trusted publishing) is unchanged.
+
 ### Added
 
 - **TGN-26 — fan-out forward with per-recipient AI rewriting (feature #24).** Deliver one

@@ -6,6 +6,9 @@ live in `docs/`; stages, current status, and checklists are tracked here. Done t
 
 ## Current state / next action
 
+- **TGN-27 done** (2026-07-26): CI now composes the public `open-ci-actions@v1` reusable
+  workflows (detect → python/sast/docker/helm/functional) instead of inline jobs; the
+  bespoke `live-functional` stays. In `CHANGELOG.md` (`[Unreleased]`).
 - **TGN-26 in progress** (2026-07-25): **fan-out forward with per-recipient AI rewriting**
   (feature #24, decision Hybrid A+B). Phase A extends the `tg-notes-send` skill to a
   multi-recipient flow (subscription, no keys). Phase B adds a headless **`tg-notes fanout`**
