@@ -71,6 +71,8 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Changed
 
+- **TGN-31 — set `next-version: 0.2.0`.** Without it the `rc` branch (Minor increment) and the `release` branch (Patch increment) diverged (0.2.0-rc vs 0.1.3). Pinning `next-version` to the target makes both channels agree: `rc` → `0.2.0rc.N`, `release` → `0.2.0`.
+
 - **TGN-30 — release standard: publish on merge to `rc`/`release`, no git tags.** Mirrors the
   canonical files merged in `ai-project-template`. The release is now a **merge**, not a tag:
   `.github/workflows/release.yml` triggers `on: push: branches: [rc, release]` (was: `on: push:
