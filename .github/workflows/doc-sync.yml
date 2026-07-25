@@ -32,7 +32,7 @@ jobs:
           case "$TITLE" in *"[skip doc-sync]"*) echo "skip via title"; exit 0;; esac
           # Dependency bumps (Dependabot) legitimately carry no doc change.
           case ",$LABELS," in *",no-docs,"* | *",dependencies,"*) echo "skip via label"; exit 0;; esac
-          case "$ACTOR" in dependabot | dependabot[bot]) echo "skip: dependabot"; exit 0;; esac
+          case "$ACTOR" in dependabot | "dependabot[bot]") echo "skip: dependabot"; exit 0;; esac
 
           base="origin/${{ github.base_ref }}"
           changed=$(git diff --name-only "$base"...HEAD)
