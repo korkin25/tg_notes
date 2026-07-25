@@ -2,6 +2,16 @@
 
 Autonomous changes (user authorized full autopilot on these repos). Newest first.
 
+## 2026-07-26 — TGN-28: drop the reusable release job (PyPI cross-repo limitation)
+
+- **Removed the `release` job from `ci.yml`.** PyPI Trusted Publishing verifies the OIDC
+  `job_workflow_ref`, which for a reusable-workflow call points at `open-ci-actions`, not this
+  repo → `invalid-publisher` (pypi/warehouse#11096). PyPI publishing stays in the vendored,
+  self-contained `.github/workflows/release.yml` (tag-triggered) that PyPI's record matches.
+  Left the standalone `release.yml` untouched. _Reverse:_ re-add the reusable `release` job.
+- Same fix was built into `jira_nano` from the start (no reusable release job; vendored
+  `publish.yml`). Docs kept in lockstep (CLAUDE.md Build/CI note, CHANGELOG).
+
 ## 2026-07-26 — TGN-27: adopt the ai-project-template standard
 
 - **CI is now a composition of `korkin25/open-ci-actions@v1`** (`detect` → `version` →

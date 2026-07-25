@@ -14,7 +14,10 @@
 #   docker      buildx build -> trivy scan -> push to GHCR on dev/rc/release and tags
 #   helm        lint + template always, package + OCI push to GHCR on tags
 #   functional  runs the repository's own auto-tests/group-a/*.sh scripts
-#   release     sdist + wheel -> PyPI via Trusted Publishing on a v* tag
+#
+# PyPI publishing lives in the VENDORED `.github/workflows/release.yml` (tag-triggered),
+# not here: the reusable release workflow can't trusted-publish cross-repository (PyPI
+# `job_workflow_ref` / `invalid-publisher`), so a self-contained workflow is the pattern.
 #
 # Delete any job you do not want; nothing else needs editing — there is no umbrella
 # workflow that would break when a piece is missing.
@@ -31,8 +34,8 @@ on:
   pull_request:
   workflow_dispatch:
 
-# Least privilege by default. Only the two jobs that publish to GHCR and the one that
-# talks to PyPI widen this, and they widen it for themselves alone.
+# Least privilege by default. Only the two jobs that publish to GHCR widen this, and
+# they widen it for themselves alone.
 permissions:
   contents: read
 
@@ -180,24 +183,15 @@ jobs:
       tests-glob: "*.sh"
       image-ref: ${{ needs.docker.outputs.image-ref }}
 
-  # ---------------------------------------------------------------------------
-  # 8. Publish to PyPI on a version tag, gated behind the Python job.
-  # Trusted Publishing: the job mints a short-lived OIDC token, so there is no
-  # PyPI API token to store or rotate. Configure the publisher on PyPI once.
-  # ---------------------------------------------------------------------------
-  release:
-    name: PyPI
-    needs: [detect, python]
-    if: startsWith(github.ref, 'refs/tags/v') && needs.detect.outputs.has-python == 'true'
-    permissions:
-      id-token: write # OIDC identity for PyPI Trusted Publishing
-      contents: read
-    uses: korkin25/open-ci-actions/.github/workflows/release.yml@v1
-    with:
-      python-version: "3.12"
+  # PyPI publishing is NOT wired here. Trusted Publishing verifies the OIDC
+  # `job_workflow_ref`, which for a job that calls a reusable workflow points at the
+  # REUSABLE workflow's repo (korkin25/open-ci-actions/...), not this repo — so a
+  # cross-repository reusable publish is rejected with `invalid-publisher`
+  # (pypi/warehouse#11096). The supported pattern is a vendored, self-contained
+  # tag-triggered workflow: this repo's own `.github/workflows/release.yml`.
 
   # ---------------------------------------------------------------------------
-  # 9. Bespoke: real-Telegram end-to-end suite. Not part of open-ci-actions —
+  # 8. Bespoke: real-Telegram end-to-end suite. Not part of open-ci-actions —
   # it needs this project's dedicated test account. Skips cleanly when the
   # session secret is absent (forks / unconfigured repos stay green).
   # ---------------------------------------------------------------------------
