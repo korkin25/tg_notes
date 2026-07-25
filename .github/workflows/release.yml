@@ -35,7 +35,7 @@ jobs:
     environment: pypi
     permissions:
       id-token: write # OIDC identity for PyPI Trusted Publishing
-      contents: read
+      contents: write # create the git tag + GitHub Release (stable only)
     steps:
       - uses: actions/checkout@v4
         with:
@@ -71,3 +71,20 @@ jobs:
         run: pipx run twine check dist/*
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
+      # GitHub Release — STABLE only. A `release`-branch build tags `vX.Y.Z` at this commit
+      # and cuts a GitHub Release with auto-generated notes and the sdist+wheel attached. rc
+      # (pre-release) publishes to PyPI only — no tag — so pre-release tags never confuse
+      # GitVersion (the version stays driven by `next-version`; auto-tags sit below it and are
+      # ignored as long as you bump `next-version` to cut the next release).
+      - name: GitHub Release (stable only)
+        if: ${{ github.ref_name == 'release' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          V="${{ steps.ver.outputs.version }}"
+          gh release create "v$V" \
+            --target "${{ github.sha }}" \
+            --title "v$V" \
+            --generate-notes \
+            dist/*

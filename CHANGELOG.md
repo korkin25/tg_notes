@@ -71,6 +71,15 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Changed
 
+- **TGN-32 — stable releases now also cut a GitHub Release.** Mirrors the canonical
+  `release.yml` merged in `ai-project-template`. A merge to `release` still publishes the clean
+  `X.Y.Z` to PyPI and now **additionally** tags `vX.Y.Z` at that commit and cuts a GitHub Release
+  with auto-generated notes and the built artifacts (sdist + wheel) attached
+  (`gh release create --generate-notes dist/*`, gated `if: github.ref_name == 'release'`). The
+  job's `permissions.contents` was raised from `read` to `write` so the workflow can create the
+  tag and release. `rc` stays **registry-only** — a pre-release publish to PyPI with **no tag** —
+  so pre-release tags never confuse GitVersion.
+
 - **TGN-31 — set `next-version: 0.2.0`.** Without it the `rc` branch (Minor increment) and the `release` branch (Patch increment) diverged (0.2.0-rc vs 0.1.3). Pinning `next-version` to the target makes both channels agree: `rc` → `0.2.0rc.N`, `release` → `0.2.0`.
 
 - **TGN-30 — release standard: publish on merge to `rc`/`release`, no git tags.** Mirrors the
