@@ -1,37 +1,42 @@
 #!/usr/bin/env bash
-# Group-(a) deploy artifacts smoke test (TGN-23). Runs in CI and locally:
-#   - helm lint + template (default and toggled values)
+# Group-(a) functional smoke test. Chart linting lives in the shared `helm` CI job, so this
+# script only proves the IMAGE actually boots and serves:
 #   - docker build of the image
 #   - boot the MCP-HTTP server and probe the port
-# Fails on the first error.
+# Contract (open-ci-actions functional runner): exit 0 = pass, 77 = skip, other = fail.
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 
-echo "== helm lint =="
-helm lint chart
+if ! command -v docker >/dev/null 2>&1; then
+  echo "docker not available — skipping functional smoke test"
+  exit 77
+fi
 
-echo "== helm template (default) =="
-helm template t chart >/dev/null
+PORT="${TG_NOTES_MCP_PORT:-8000}"
 
-echo "== helm template (toggles: ingress/cronJob/serviceMonitor/pdb) =="
-helm template t chart \
-  --set ingress.enabled=true \
-  --set cronJob.enabled=true --set 'cronJob.command[0]=tg-notes' \
-  --set serviceMonitor.enabled=true \
-  --set podDisruptionBudget.enabled=true >/dev/null
+# Where the published port is reachable. On a laptop / GitHub Actions the daemon is local,
+# so 127.0.0.1. On GitLab CI the container runs on the docker:dind *service* and its ports
+# live in that service's netns — reachable at host `docker`, never localhost. Derive the
+# host from DOCKER_HOST (e.g. tcp://docker:2376 -> docker) when the runner set it.
+PROBE_HOST="127.0.0.1"
+if [ -n "${DOCKER_HOST:-}" ]; then
+  h="$(printf '%s' "${DOCKER_HOST}" | sed -E 's#^[a-z]+://##; s#:.*$##')"
+  [ -n "${h}" ] && PROBE_HOST="${h}"
+fi
 
 echo "== docker build =="
 DOCKER_BUILDKIT=1 docker build -t tg-notes:ci-test .
 
-echo "== boot MCP-HTTP and probe :8000 =="
-docker run -d --name tgn-ci -p 8000:8000 tg-notes:ci-test >/dev/null
+echo "== boot MCP-HTTP and probe ${PROBE_HOST}:${PORT} =="
+docker rm -f tgn-ci >/dev/null 2>&1 || true
+docker run -d --name tgn-ci -p "${PORT}:8000" tg-notes:ci-test >/dev/null
 ok=0
 for _ in $(seq 1 20); do
-  if (echo > /dev/tcp/127.0.0.1/8000) 2>/dev/null; then ok=1; break; fi
+  if (echo > "/dev/tcp/${PROBE_HOST}/${PORT}") 2>/dev/null; then ok=1; break; fi
   sleep 1
 done
 docker logs tgn-ci | tail -10 || true
 docker rm -f tgn-ci >/dev/null 2>&1 || true
-test "$ok" = "1"
+test "${ok}" = "1"
 
-echo "OK: deploy artifacts validated"
+echo "OK: image boots and serves on :${PORT}"

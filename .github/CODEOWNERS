@@ -1,0 +1,9 @@
+# Required reviewers per path (gitignore-style globs → GitHub users/teams).
+
+# Default owner for everything.
+*                       @korkin25
+
+# The rules and CI are load-bearing — guard them.
+/CLAUDE.md              @korkin25
+/.github/               @korkin25
+/chart/                 @korkin25

@@ -1,0 +1,21 @@
+---
+description: Canonical project rules (router to CLAUDE.md)
+globs:
+alwaysApply: true
+---
+
+# Project rules
+
+The canonical, always-applicable rules for this repository live in **`/CLAUDE.md`** (Cursor
+also reads the root `AGENTS.md`, which is a symlink to it). Read it in full before working.
+
+`CLAUDE.md` is a **router**: start from its "Start here — context map" and load the
+task-relevant files (`Features.md`, `TODO.md`, `docs/tests.md`, `docs/configuration.md`,
+`docs/architecture.md`, `docs/sandbox-testing.md`, `skills/*/SKILL.md`) before acting. Do not
+work from this pointer or from `CLAUDE.md` alone.
+
+Three hard rules to remember:
+- **Design before code** — no implementation (not even tests) until the design is finished and
+  any architectural decision is approved.
+- **Doc-sync in the same change** — update docs/tests/CHANGELOG when code changes; CI enforces it.
+- **Never send real Telegram messages** outside the dedicated sandbox test account/group.
