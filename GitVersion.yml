@@ -1,59 +1,45 @@
 ---
-# GitVersion — the single source of the version (image, Helm chart, package, and docs).
-# Branching model: feature/* → dev → rc → release. There is NO `main` branch.
-# Adapted from the BNPL services' config with channel names normalized to dev/rc/release.
+# GitVersion — the single source of the version (image, chart, package/extension).
+# Branching model: feature/* -> dev -> rc -> release. No `main` branch, NO git tags.
 #
-# Produces:
-#   feature/*  → X.Y.Z-alpha.N
-#   dev        → X.Y.Z-dev.N       (mainline integration)
-#   rc         → X.Y.Z-rc.N
-#   release    → X.Y.Z-release.N   (set label: '' below if you want a clean X.Y.Z on release)
-#   tag v*     → that exact version
+# This is a clean GitVersion 6.x config. (An older "5.x-style" config breaks with a
+# `next-version` under GitVersion 6.8+: "Failed to parse X into a Semantic Version".
+# That is why it was rewritten from scratch — keep it minimal and 6.x-native.)
 #
-# GitLab CI reads this via auto-semversioning; GitHub Actions runs GitVersion in a `version`
-# job and reuses the same number — so both CIs and the docs agree on one version.
+# Per branch the release.yml picks the right variable:
+#   rc       -> SemVer          e.g. 0.1.0-rc.8   (pre-release publish)
+#   release  -> MajorMinorPatch e.g. 0.1.0        (clean, stable publish)
+#
+# THE ONE VERSION KNOB is `next-version`. There are no tags, so bump it to cut a new
+# minor/major, then merge dev -> rc -> release.
 mode: ContinuousDelivery
-tag-prefix: v
+next-version: 0.1.0
 
 branches:
   dev:
     regex: ^(origin/)?dev(elop)?(ment)?$
-    mode: ContinuousDelivery
     label: dev
     increment: Patch
-    prevent-increment:
-      when-current-commit-tagged: false
     is-main-branch: true
-
+    source-branches: [feature, hotfix]
   rc:
     regex: ^(origin/)?rc$
-    mode: ContinuousDelivery
     label: rc
     increment: Minor
-    source-branches:
-      - dev
-
+    source-branches: [dev]
   release:
     regex: ^(origin/)?release$
-    mode: ContinuousDelivery
-    label: release
-    increment: Major
+    label: ""
+    increment: Patch
     is-release-branch: true
-    source-branches:
-      - rc
-
+    source-branches: [rc, dev]
   feature:
-    regex: ^(origin/)?features?[/-]
-    mode: ContinuousDelivery
+    regex: ^(origin/)?features?[-/]
     label: alpha
     increment: Inherit
-    source-branches:
-      - dev
-
+    source-branches: [dev]
   hotfix:
-    regex: ^(origin/)?hotfix(es)?[/-]
-    mode: ContinuousDelivery
+    regex: ^(origin/)?hotfix(es)?[-/]
     label: hotfix
     increment: Patch
-    source-branches:
-      - release
+    source-branches: [dev, release]
