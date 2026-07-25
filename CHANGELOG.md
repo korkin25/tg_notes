@@ -79,7 +79,10 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   build + boot `tg-notes-mcp-http` + port probe (contract exit 0/77/other; probe host portable
   across GitHub and GitLab DinD). The old `main` branch is retired in favour of
   `feature/*` → `dev` → `rc` → `release`; `dev` is the default branch and versions come from
-  GitVersion. All governance text updated to the new model.
+  GitVersion. All governance text updated to the new model. The bespoke `live-functional`
+  job runs on `push` only (skips the duplicate same-repo `pull_request` run for the same SHA)
+  and holds a serializing concurrency group, so two real-Telegram suites never hit the one
+  test account at once (that concurrency was making media read-backs flaky).
 - **TGN-22 — governance docs mirrored with `jira_nano`.** `CLAUDE.md` gains explicit,
   apply-without-being-asked sections: **Documentation sync** (trigger→update table),
   **Testing policy** (three test groups a/b/c, TDD-first, CI log analysis even on green,

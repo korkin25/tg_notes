@@ -204,7 +204,20 @@ jobs:
   live-functional:
     name: Live-functional (real Telegram)
     needs: [detect, python]
-    if: needs.detect.outputs.has-python == 'true'
+    # This suite talks to ONE real Telegram account. A branch with an open PR gets both a
+    # `push` and a `pull_request` run for the same SHA; running two live suites against the
+    # same account at once throttles Telegram and makes reads flaky (a fresh forum topic can
+    # read back empty under load). So run it on `push` — which tests the exact SHA — and skip
+    # the duplicate same-repo `pull_request` run. Fork PRs carry no secrets and self-skip via
+    # the SESSION guard below.
+    if: >-
+      needs.detect.outputs.has-python == 'true'
+      && !(github.event_name == 'pull_request'
+           && github.event.pull_request.head.repo.full_name == github.repository)
+    # Belt-and-suspenders: never let two live suites overlap (e.g. pushes on two branches).
+    concurrency:
+      group: live-functional-telegram
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     environment: ci-functional
     steps:
