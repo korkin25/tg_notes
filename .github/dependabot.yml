@@ -1,3 +1,6 @@
+# Low-noise policy: one grouped PR per ecosystem, weekly, and never a breaking major
+# (major bumps need a deliberate migration as their own task, not a red auto-PR).
+# Minor/patch only.
 version: 2
 updates:
   - package-ecosystem: "pip"
@@ -6,15 +9,34 @@ updates:
       interval: "weekly"
     open-pull-requests-limit: 5
     labels: ["dependencies"]
+    groups:
+      pip:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "weekly"
     labels: ["dependencies", "ci"]
+    groups:
+      github-actions:
+        patterns: ["*"]
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: "docker"
     directory: "/"
     schedule:
       interval: "weekly"
     labels: ["dependencies", "docker"]
+    groups:
+      docker:
+        patterns: ["*"]
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]

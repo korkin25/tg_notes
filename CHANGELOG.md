@@ -71,6 +71,11 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Changed
 
+- **TGN-29 — tamed Dependabot noise + doc-sync exemption.** The `doc-sync` guard now skips
+  dependency PRs (the `dependencies` label / `dependabot[bot]` actor) — a version bump carries
+  no doc change and should not be forced to fake one. `dependabot.yml` now opens **one grouped
+  PR per ecosystem** and **ignores breaking major bumps**; only minor/patch updates are proposed
+  (majors are a deliberate migration task, not a red auto-PR).
 - **TGN-28 — dropped the reusable `release` job from `ci.yml`.** PyPI Trusted Publishing
   rejects a cross-repository reusable publish (the OIDC `job_workflow_ref` points at
   `open-ci-actions`, not this repo → `invalid-publisher`, pypi/warehouse#11096). Publishing
