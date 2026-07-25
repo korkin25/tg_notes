@@ -71,6 +71,19 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Changed
 
+- **TGN-30 — release standard: publish on merge to `rc`/`release`, no git tags.** Mirrors the
+  canonical files merged in `ai-project-template`. The release is now a **merge**, not a tag:
+  `.github/workflows/release.yml` triggers `on: push: branches: [rc, release]` (was: `on: push:
+  tags: v*`) — a merge to `rc` publishes a PyPI **pre-release** `X.Y.ZrcN`, a merge to `release`
+  publishes a clean stable `X.Y.Z`. The version comes **entirely from GitVersion**, injected at
+  build time (`hatch version <semver>`), never hardcoded — `tg_notes/__init__.py` now carries a
+  `0.0.0` placeholder (the published wheel gets the injected version; local dev shows `0.0.0`).
+  `GitVersion.yml` was rewritten to a clean **6.x-native** config with a single knob
+  `next-version` (the old BNPL-style 5.x config made `next-version` fail to parse under GitVersion
+  6.8+). `CLAUDE.md`'s **Versioning & releasing** section documents the merge-based flow and the
+  `rc`/`release` semantics; a new **Feature-backlog scope rule** limits `Features.md` to
+  user-facing product features (engineering/infra work lives in `TODO.md`/`CHANGELOG.md`), and the
+  infra entry #25 was removed from `Features.md` accordingly.
 - **TGN-29 — tamed Dependabot noise + doc-sync exemption.** The `doc-sync` guard now skips
   dependency PRs (the `dependencies` label / `dependabot[bot]` actor) — a version bump carries
   no doc change and should not be forced to fake one. `dependabot.yml` now opens **one grouped

@@ -1,34 +1,72 @@
-name: Release
-
-# Triggered by pushing a SemVer tag (vX.Y.Z). Builds the distribution and
-# publishes it to PyPI via Trusted Publishing (OIDC) — no API token in secrets.
+# Release — vendored, canonical for the standard.
 #
-# ONE-TIME PyPI SETUP (before the first tag): on PyPI, add a Trusted Publisher for
-# the project `tg-notes` bound to repo `korkin25/tg_notes`, workflow
-# `release.yml`, environment `pypi`. Until that exists, the publish step fails by
-# design. Publishing is deliberate — this runs only on a `v*` tag, which is cut
-# only after the full suite is green on `main`.
+# NO TAGS. A merge into `rc` or `release` IS the release:
+#   * merge to `rc`      -> pre-release publish   (PyPI 0.1.0rcN)
+#   * merge to `release` -> stable publish        (PyPI 0.1.0)
+# The version comes entirely from GitVersion (the single source — GitVersion.yml,
+# knob `next-version`). No version is hardcoded and no git tag is ever created.
+#
+# Why vendored (not the reusable open-ci-actions release workflow): PyPI verifies the
+# OIDC `job_workflow_ref`, which for a reusable-workflow call points at
+# open-ci-actions, not this repo -> `invalid-publisher` (pypi/warehouse#11096). A
+# self-contained workflow in the consumer repo is the supported pattern.
+#
+# ONE-TIME PyPI SETUP (before the first publish): on PyPI add a Trusted Publisher for
+# the project, bound to owner/repo = THIS repo, workflow = `release.yml`,
+# environment = `pypi`.
+name: Release
 
 on:
   push:
-    tags:
-      - "v*"
+    branches: [rc, release]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   release:
+    name: Build & publish to PyPI
     runs-on: ubuntu-latest
     environment: pypi
     permissions:
-      id-token: write # OIDC token for PyPI Trusted Publishing
+      id-token: write # OIDC identity for PyPI Trusted Publishing
+      contents: read
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # GitVersion needs full history
+      - uses: gittools/actions/gitversion/setup@v3
+        with:
+          versionSpec: "6.x" # latest GitVersion 6.x
+      - id: gv
+        uses: gittools/actions/gitversion/execute@v3
+      - name: Resolve the publish version (rc = pre-release, release = clean)
+        id: ver
+        env:
+          MMP: ${{ steps.gv.outputs.majorMinorPatch }}
+          PRE: ${{ steps.gv.outputs.preReleaseNumber }}
+        run: |
+          set -euo pipefail
+          if [ "${{ github.ref_name }}" = "release" ]; then
+            V="$MMP"                       # clean X.Y.Z
+          else
+            V="${MMP}rc${PRE}"             # PEP 440 pre-release, e.g. 0.1.0rc8
+          fi
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+          echo "Publishing $V from '${{ github.ref_name }}'"
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Install build backend
-        run: pip install build
-      - name: Build distribution
-        run: python -m build
+      - name: Inject the version and build
+        run: |
+          python -m pip install --upgrade pip hatch build
+          hatch version "${{ steps.ver.outputs.version }}"
+          python -m build
       - name: Check distribution metadata
         run: pipx run twine check dist/*
       - name: Publish to PyPI

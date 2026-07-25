@@ -7,16 +7,6 @@ New requests and ideas land here first, then become tasks in [TODO.md](TODO.md).
 
 ## Current (in progress)
 
-25. **Adopt the `ai-project-template` engineering standard (TGN-27).** Align this repo with the
-    shared reference template: CI as a **composition of `korkin25/open-ci-actions@v1`** (detect →
-    version → python/sast/docker/helm/functional/release) instead of inline jobs; **GitVersion**
-    auto-versioning; branch model **`feature/*` → `dev` → `rc` → `release`** (retire `main`);
-    universal agent-rule pickup (`CLAUDE.md` single-source with symlinked `AGENTS.md`/`GEMINI.md`/
-    `.cursorrules`/… + Cursor MDC pointer + per-turn hook); **doc-sync CI guard**, Dependabot,
-    pre-commit (gitleaks-only), CODEOWNERS, PR/issue templates, `SECURITY.md`/`CONTRIBUTING.md`/
-    `CODE_OF_CONDUCT.md`; and a `.gitlab-ci.yml` mirror on `open_ci_cd/templates`. Governance
-    doc gains **Design-before-code**, **Safe-autonomy** and **Agent-security** sections.
-
 24. **Fan-out forward with per-recipient AI rewriting.** Deliver one source (a note, a set of
     notes, or a forwarded message) to **several contacts at once**, each rewritten for that
     recipient's level via their `style` (business summary for a manager, verbatim-technical for a
