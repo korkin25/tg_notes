@@ -148,9 +148,11 @@ gate set; a version tag `v*` publishes the release artifacts.
 **Composition, not inline jobs.** `.github/workflows/ci.yml` is wiring only — every job
 `uses:` a reusable workflow from the public
 [`korkin25/open-ci-actions@v1`](https://github.com/korkin25/open-ci-actions)
-(`detect` → `version` → `python` / `sast` / `docker` / `helm` / `functional` / `release`), plus
-one bespoke `live-functional` job for the real-Telegram suite. The GitLab mirror uses
-`open_ci_cd/templates`. **New shared CI logic belongs in `open-ci-actions`, not in this repo.**
+(`detect` → `version` → `python` / `sast` / `docker` / `helm` / `functional`), plus one bespoke
+`live-functional` job for the real-Telegram suite. PyPI publishing is **not** in `ci.yml` — it
+is the vendored `.github/workflows/release.yml` (tag-triggered), because the reusable release
+workflow can't trusted-publish cross-repository. The GitLab mirror uses `open_ci_cd/templates`.
+**New shared CI logic belongs in `open-ci-actions`, not in this repo.**
 The gates below describe what those reusable workflows run.
 
 **Gates (every push/PR):**

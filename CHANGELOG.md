@@ -71,6 +71,12 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Changed
 
+- **TGN-28 — dropped the reusable `release` job from `ci.yml`.** PyPI Trusted Publishing
+  rejects a cross-repository reusable publish (the OIDC `job_workflow_ref` points at
+  `open-ci-actions`, not this repo → `invalid-publisher`, pypi/warehouse#11096). Publishing
+  stays in the vendored, self-contained `.github/workflows/release.yml` (tag-triggered), which
+  PyPI's trusted-publisher record matches. On a `v*` tag the reusable job would otherwise fail
+  even though the vendored one succeeds.
 - **TGN-27 — CI is now a composition, and the branch model moved to `dev`/`rc`/`release`.**
   `.github/workflows/ci.yml` is wiring only — every job `uses:` a reusable workflow from
   `korkin25/open-ci-actions@v1` (`detect` → `version` → `python` / `sast` / `docker` / `helm` /
