@@ -21,13 +21,19 @@ you, into a real chat or forum topic. Daily work reports are one built-in preset
 ## Features
 
 - Notes stored in a private Telegram forum group; one topic per notebook.
+- A note can be text or a media file (photo/video/audio/document) — uploaded as native
+  Telegram media; audio notes auto-transcribe **locally** to a searchable caption
+  (best-effort, pluggable whisper engine).
 - A dedicated contacts topic acts as the address book (one message per contact).
 - Compile a subset of notes into a recipient-specific view and post it as you.
 - Per-contact style (e.g. verbatim technical for a lead, simplified for a manager).
 - Post to a plain chat or a specific forum topic; optional mention.
 - Daily work-report preset.
+- Interactive pickers when a selection flag is omitted on a terminal (`fzf`/`sk`/`fzy`,
+  else a numbered menu); scripted/agent calls that pass the flag are unaffected.
 
-Full list: [Features.md](Features.md).
+See [CHANGELOG.md](CHANGELOG.md) for the full release history; backlog and ideas live in
+[TODO.md](TODO.md).
 
 ## How it works
 

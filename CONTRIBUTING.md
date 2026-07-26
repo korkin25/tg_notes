@@ -8,7 +8,8 @@ agents alike.
 
 1. **Design before code.** No implementation until the design is written down and any
    architectural decision is agreed (see `docs/architecture.md`).
-2. **Log the task** in `TODO.md` as `TGN-<n>` and add it to `Features.md`.
+2. **Log the task** in `TODO.md` as `TGN-<n>`. User-facing features are documented in
+   `README.md`'s `## Features` section once built; backlog/ideas live in `TODO.md`.
 3. **Branch** `feature/TGN-<n>-<slug>` off `dev` (there is no `main`; the flow is
    `feature/*` → `dev` → `rc` → `release`).
 4. **TDD** — write the failing test first, then implement until green. No feature code
