@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "printf '%s' 'Reminder: CLAUDE.md is a ROUTER. Before acting, load the task-relevant files from its \"Start here — context map\" (Features.md, TODO.md, docs/tests.md, docs/configuration.md, docs/architecture.md, docs/sandbox-testing.md, skills/*/SKILL.md). Keep docs in lockstep in the same change (Documentation-sync table); CI enforces it. Design before code; TDD; never send real Telegram messages outside the sandbox test account.'"
+            "command": "printf '%s' 'Reminder: CLAUDE.md is a ROUTER. Before acting, load the task-relevant files from its \"Start here — context map\" (TODO.md, README.md ## Features, docs/tests.md, docs/configuration.md, docs/architecture.md, docs/sandbox-testing.md, skills/*/SKILL.md). Keep docs in lockstep in the same change (Documentation-sync table); CI enforces it. Design before code; TDD; never send real Telegram messages outside the sandbox test account.'"
           }
         ]
       }
@@ -16,7 +16,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "printf '%s' 'This repo follows CLAUDE.md as a router over Features.md/TODO.md/docs/*/skills. Read the \"Start here — context map\" before working; do not work from CLAUDE.md alone.'"
+            "command": "printf '%s' 'This repo follows CLAUDE.md as a router over TODO.md, README.md ## Features, docs/*, and skills. Read the \"Start here — context map\" before working; do not work from CLAUDE.md alone.'"
           }
         ]
       }

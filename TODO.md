@@ -37,7 +37,8 @@ live in `docs/`; stages, current status, and checklists are tracked here. Done t
   `CHANGELOG.md` (`[Unreleased]`).
 - **TGN-22 done** (2026-07-25): governance docs mirrored with `jira_nano` — `CLAUDE.md`
   now carries the Documentation-sync table, the Testing policy (groups a/b/c, TDD-first,
-  release gate) and the MANDATORY Per-task lifecycle; features moved to root `Features.md`;
+  release gate) and the MANDATORY Per-task lifecycle; user-facing features documented in
+  `README.md` `## Features`;
   `docs/tests.md` + `auto-tests/` scaffolds added. In `CHANGELOG.md` (`[Unreleased]`).
 - **Release `0.1.2` cut** (2026-07-25): whisper engine auto-fetch on first use
   (`transcribe.ensure_engine`, best-effort, once per process, `pipx inject` vs `pip install`
@@ -87,6 +88,21 @@ live in `docs/`; stages, current status, and checklists are tracked here. Done t
 - Otherwise all earlier work is DONE. The only other open item is **TGN-15** (submit the
   plugin to a community marketplace) — a user web action, optional; the repo side already
   passes `claude plugin validate --strict` and the plugin installs from `korkin25/tg_notes`.
+
+## Planned / ideas
+
+Backlog and brainstorm items (formerly a separate numbered backlog file, now removed).
+Delivered, user-facing features live in `README.md`'s `## Features`; release history is in
+`CHANGELOG.md`.
+
+- **Fan-out forward with per-recipient AI rewriting** — deliver one source (a note or a
+  notebook's notes) to **several contacts at once**, each rewritten for that recipient's level
+  via their `style` (business summary for a manager, verbatim-technical for a tech lead).
+  Hybrid A+B design. In progress as **TGN-26** (see *Phase 6* below).
+- **Community-marketplace listing** — submit the Claude plugin to a community marketplace
+  (a user web action; the repo side already passes `claude plugin validate . --strict` and
+  git-installs from `korkin25/tg_notes`). Tracked as **TGN-15** (see *Phase 3* below).
+- _Brainstorm: none yet._
 
 ## Legend
 

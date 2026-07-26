@@ -17,8 +17,9 @@ whose trigger matches below, and keep them loaded. Working from `CLAUDE.md` alon
 
 | Before you… | Open and read |
 |---|---|
-| do **anything** | `Features.md` (numbered backlog), `TODO.md` (Current state / next action) |
-| build or change a **feature/bug** | `docs/tests.md` (its test plan), `docs/configuration.md` (env vars), the relevant `tg_notes/**` |
+| do **anything** | `TODO.md` (Current state / next action, backlog & ideas) |
+| build or change a **feature** | `README.md` `## Features` (delivered user-facing list), `docs/tests.md` (its test plan), `docs/configuration.md` (env vars), the relevant `tg_notes/**` |
+| build or change a **bug** | `docs/tests.md` (its test plan), `docs/configuration.md` (env vars), the relevant `tg_notes/**` |
 | touch **deploy / CI / containers** | `.github/workflows/ci.yml`, `Dockerfile`, `chart/README.md` |
 | change **architecture / storage / public API** | `docs/architecture.md` |
 | run a **live / sandbox test** | `docs/sandbox-testing.md` + *Testing in a sandbox* below |
@@ -45,7 +46,8 @@ intelligence (composing notes, compiling them per recipient). See
 [docs/architecture.md](docs/architecture.md).
 
 Status: **released** — published to PyPI. Versions live in [CHANGELOG.md](CHANGELOG.md);
-open work in [TODO.md](TODO.md); the feature backlog in [Features.md](Features.md).
+open work and the backlog in [TODO.md](TODO.md); delivered user-facing features in
+[README.md](README.md)'s `## Features`.
 
 ## Language rules (STRICT)
 
@@ -56,19 +58,17 @@ open work in [TODO.md](TODO.md); the feature backlog in [Features.md](Features.m
   the language they wrote in. This applies only to the live chat, never to anything
   written into the repo.
 
-## Feature backlog — `Features.md` (root)
+## Features — `README.md`
 
-- Everything the user asks to build, and every "add for brainstorm" idea, is a
-  **numbered** entry in `Features.md` at the repository **root** (never under
-  `docs/`). If a features doc lives under `docs/`, move it to the root.
-- Numbers are **stable and never reused**. Entries are grouped by state:
-  **Current** (in progress) · **Planned** · **Brainstorm** (ideas) · **Delivered**.
-- A new idea from the user lands here first (as Brainstorm or Planned) before it
-  becomes a task in `TODO.md`.
-- `Features.md` lists **only user-facing product features** — what the software does for its
-  users. **Never** put engineering/infra tasks there (deployment, CI/CD, release, versioning,
-  tooling, refactors, governance) — those live in `TODO.md`/`CHANGELOG.md`. Remove any such entry
-  from `Features.md`.
+- **Delivered, user-facing features are documented in `README.md`'s `## Features` section.**
+  PyPI renders the README, so that section is the public, user-facing feature list — keep it in
+  lockstep as features land.
+- **Backlog and brainstorm ideas live in `TODO.md`** (its "Planned / ideas" area). A new idea
+  from the user lands there first, before it becomes a numbered `TGN-<n>` task and, once built,
+  a `## Features` line in `README.md`.
+- `README.md` `## Features` lists **only user-facing product features** — what the software does
+  for its users. **Never** put engineering/infra work there (deployment, CI/CD, release,
+  versioning, tooling, refactors, governance) — those live in `CHANGELOG.md`/`TODO.md`.
 
 ## Documentation sync (apply without being asked)
 
@@ -76,13 +76,13 @@ Keep docs in lockstep with the code, **in the same change** — never wait to be
 
 | What changed | Update |
 |---|---|
-| New/changed feature or behavior | `Features.md` (root) entry + `README.md` |
+| New/changed feature or behavior | `README.md` `## Features` + relevant `docs/` |
 | CLI / API / MCP surface (commands, flags, tools) | `README.md` + relevant `docs/*.md` |
 | Architecture, storage schema, data flow, security model | `docs/architecture.md` |
 | A feature is picked up for implementation | its test section in `docs/tests.md` |
 | Any user-visible change | `CHANGELOG.md` under `## [Unreleased]` |
 | Task started / finished / blocked, or a test's pass status | `TODO.md` |
-| User asks to build something, or "add for brainstorm" | numbered entry in `Features.md` |
+| User asks to build something, or "add for brainstorm" | `TODO.md` ("Planned / ideas") |
 
 - `CHANGELOG.md` follows [Keep a Changelog](https://keepachangelog.com/) + SemVer.
 - `TODO.md` holds only open/in-progress work and the per-test pass status of the
@@ -215,7 +215,7 @@ default image stays lean. Identical pattern in `jira_nano` — always document i
 This project is developed by an AI agent under continuous, autonomous iteration.
 
 - **Design before code (MANDATORY).** No implementation — not even tests — begins until the design is finished. "Finished" means the approach is written down (in `docs/architecture.md` or the ticket): the data model, the public API/contract (CLI/MCP surface), the deployment shape, the affected components, and the trade-offs of the chosen option vs. alternatives. Any **architectural** decision in that design must be approved by the user before coding starts (consult on it explicitly). For a trivial change the design may be a sentence — but it is still written before code. If mid-implementation you discover the design was wrong, stop, revise the design, then resume.
-- Continuous development: while open bugs or features remain (see `Features.md` / `TODO.md`), keep implementing autonomously through the per-task lifecycle below. Consult the user ONLY for architectural decisions — topology, data model, public API/contract, deployment shape, dependency/stack choices.
+- Continuous development: while open bugs or features remain (see `TODO.md`), keep implementing autonomously through the per-task lifecycle below. Consult the user ONLY for architectural decisions — topology, data model, public API/contract, deployment shape, dependency/stack choices.
 - Test-driven: for every agreed feature write the tests FIRST (they must fail), then implement until green. No feature code without a test.
 - Feature branches: work on `feature/TGN-<n>-<slug>` off `dev`; merge to `dev` only when the full suite is green. Promote `dev` → `rc` → `release` by merging forward. **There is no `main` branch** (see *Versioning*).
 - Commit periodically in small logical units, Conventional Commits (feat:, fix:, test:, docs:, chore:, ci:). Never add a Co-Authored-By trailer. Push to `origin` after every commit.
@@ -229,7 +229,7 @@ This project is developed by an AI agent under continuous, autonomous iteration.
 ### Per-task lifecycle (MANDATORY — in this order)
 
 1. **Log first.** The task exists in `TODO.md` as `TGN-<n>` before any work begins. If it is not logged, log it first.
-2. **Backlog.** Ensure the feature is a numbered entry in root `Features.md`.
+2. **Backlog.** Ensure the feature is described in `README.md` `## Features` (once built) or tracked in `TODO.md` ("Planned / ideas") until it is.
 3. **Design.** Write the design (data model, CLI/MCP contract, deployment shape, trade-offs) in `docs/architecture.md` or the ticket. **No code and no tests until it is finished**, and any architectural decision is approved by the user. This gate is mandatory (see "Design before code" above).
 4. **Test plan.** Once the design is fixed, add the feature's section to `docs/tests.md` (groups a/b/c) — the tests derive from the design.
 5. **Branch.** Create `feature/TGN-<n>-<slug>` off `dev`.

@@ -71,6 +71,14 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Changed
 
+- **TGN-33 — removed `Features.md`.** The separate numbered feature-backlog file is gone.
+  Delivered, user-facing features are now documented in `README.md`'s `## Features` section
+  (PyPI renders the README, so it is the public feature list); backlog and brainstorm ideas
+  live in `TODO.md` (a new "Planned / ideas" area). All references were redirected — `CLAUDE.md`
+  (context-map router, Documentation-sync table, Features section, per-task lifecycle),
+  `.claude/settings.json` reminder hook, `.cursor/rules/project.mdc`, the PR/issue templates,
+  `CONTRIBUTING.md`, and the `doc-sync.yml` guard regex (dropped `Features.md`).
+
 - **TGN-32 — stable releases now also cut a GitHub Release.** Mirrors the canonical
   `release.yml` merged in `ai-project-template`. A merge to `release` still publishes the clean
   `X.Y.Z` to PyPI and now **additionally** tags `vX.Y.Z` at that commit and cuts a GitHub Release
